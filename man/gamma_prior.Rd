@@ -4,14 +4,22 @@
 \alias{gamma_prior}
 \title{Specify a gamma prior distribution.}
 \usage{
-gamma_prior(shape, rate = 1, scale = 1/rate)
+gamma_prior(shape = 1, rate = 0.1, scale)
 }
 \arguments{
-\item{prec}{TO DO.}
+\item{shape}{Shape parameter (\eqn{\alpha} or \eqn{k}) of the gamma distribution.}
+
+\item{rate}{Rate parameter (\eqn{\beta}) of the gamma distribution.}
+
+\item{scale}{Scale parameter (\eqn{\theta = \beta^{-1}}) of the gamma distribution. Cannot be specified if \code{rate} is.}
 }
 \value{
 A list specifying a gamma prior distribution.
 }
 \description{
 Specify a gamma prior distribution.
+}
+\examples{
+gamma_prior(shape=1, rate=.1)
+gamma_prior(shape=1, scale=10)
 }

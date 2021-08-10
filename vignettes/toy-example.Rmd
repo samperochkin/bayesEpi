@@ -1,0 +1,72 @@
+---
+title: "Toy example"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Toy example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, results = F}
+#library(bayesEpi)
+devtools::load_all("~/Git/packages/bayesEpi")
+```
+
+This vignette shows hot to use the `fitModel` function to fit a case crossover model.
+
+## Toy data
+Consider the following dummy data:
+```{r data}
+n <- 1000
+toyData <- data.frame(time = seq(n))
+
+# explanatory variables and hazard
+toyData$hum <- pmin(pmax((sin(toyData$time/365 * 2*pi) + 1)/2 + rnorm(n,0,.75),0),1)
+toyData$o3 <- pmax((sin(toyData$time/365 * 2*pi) + 1)*25 + rnorm(n,0,10),0)
+loghazard <- abs(1.25-toyData$hum)*1 + (toyData$o3/25)^2
+
+# response variable
+toyData$count <- rpois(n,exp(loghazard))
+
+head(toyData)
+```
+Here, the names `hum` and `o3` refer to humidity level and ozone concentration, which are two common variables in air pollution epidemiology (although the values they take here do not necessarily make sense).
+
+## Model specification
+To fit a case crossover model with `count` as response variable, `time` as the time index, `hum` as fixed effect and `o3` as random effect, we first specify the model via
+```{r model}
+model <- bayesEpi::ccModel(response = "count",
+                           time_index = "time",
+                           fixed = list("hum" = fixedEffect(gaussian_prior())),
+                           random = list("o3" = randomEffect(rw_effect(), pc_prep_prior())),
+                           overdispersion = randomEffect(gaussian_effect(), pc_prep_prior()),
+                           design = ccDesign(),
+                           control_aghq = controlAGHQ())
+```
+More fixed or random effects could be added, e.g., with
+`random = list("o3" = randomEffect(rw_effect(), pc_prep_prior()), "other_random_effect" = randomEffect(rw_effect(), pc_prep_prior()))`.
+Note that only the gaussian prior is implemented for fixed effects, and that only the random walk model (`rw_effect`) is implemented for random effects.
+
+## Fit
+We can then fit the model with the function `fitModel`, which usually prints a bunch of stuff (somewhat uninformative if you know nothing about the `aghq` package).
+```{r fit, results = F}
+fit <- fitModel(model, toyData)
+```
+
+## Analysis of the results
+Several functions are provided for analyzing the results returned by `fitModel`.
+Median prediction as well as confidence intervals can be obtained via the function `getResults`.
+```{r results, results = F}
+# res <- getResults(fit, quantiles = c(.05,.5,.95))
+```
+
+```{r plots, results = F}
+# plotResults(res, alpha = .1)
+```

@@ -4,7 +4,7 @@
 \alias{tsModel}
 \title{Constructor for tsModel (S3) objects.}
 \usage{
-tsModel(fixed, random, overdispersion, control_aghq)
+tsModel(response, time_index, fixed, random, overdispersion, control_aghq)
 }
 \arguments{
 \item{.}{TO DO}

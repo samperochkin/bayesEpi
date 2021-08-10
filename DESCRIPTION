@@ -1,6 +1,6 @@
 Package: bayesEpi
 Title: Bayesian implementation of Poisson time series and case-crossover models using TMB and aghq. 
-Version: 0.0.0.01
+Version: 0.01
 Authors@R: 
     person(given = "Samuel",
            family = "Perreault",
@@ -25,7 +25,15 @@ Imports:
     Matrix,
     magrittr,
     MatrixModels,
-    Rcpp
+    TMB,
+    RcppEigen,
+    Rcpp,
+    Rdpack,
+    purrr
+RdMacros:
+    Rdpack
 VignetteBuilder: knitr
 LinkingTo: 
+    TMB,
+    RcppEigen,
     Rcpp

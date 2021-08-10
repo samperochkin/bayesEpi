@@ -7,7 +7,7 @@
 #' @param ext A character vector indicating giving the names of the new_variables. Default is paste0("_", lags, "lag").
 #' @return An updated data.frame.
 #' @examples
-createLaggedVariable <- function(df, variable, lags, remove_original = F, ext = paste0("_", lags, "lag")){
-  stop("The function preprocessing_functions/createLaggedVariable is not yet written.")
-}
+# createLaggedVariable <- function(df, variable, lags, remove_original = F, ext = paste0("_", lags, "lag")){
+#   stop("The function preprocessing_functions/createLaggedVariable is not yet written.")
+# }
 

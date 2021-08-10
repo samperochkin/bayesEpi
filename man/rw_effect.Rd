@@ -7,7 +7,7 @@
 rw_effect(order = 3, poly_degree = order - 1, ref_value = median, binwidth = 1)
 }
 \arguments{
-\item{order}{Order of the random walk.}
+\item{order}{Order of the random walk. Restricted to 1, 2 and 3.}
 
 \item{poly_degree}{Degree of the polynomial interpolation at reference value; see details.}
 
@@ -16,8 +16,16 @@ rw_effect(order = 3, poly_degree = order - 1, ref_value = median, binwidth = 1)
 \item{binwidth}{Binwidth to be used for discretizing the continuous variable; see details.}
 }
 \value{
-A list specifying a model for a nonlinear random effect.
+A list specifying a random walk model for a nonlinear random effect.
 }
 \description{
-Specify a Gaussian random walk distribution for random effect.
+This is used to approximate Gaussian processes random effects.
+When a Gaussian random walk is specified, the range of observed values is discretized into
+bins and the random effect is modeled as a random walk on these. For technical reasons, the
+bin that contain the reference value is removed, as well as some of its neighbors, so that
+the number of bins removed equals \code{order}. By default, fixed effects (x - x_ref)^i, i=1,...,\code{order}-1
+are then added to the model.
+}
+\examples{
+rw_effect()
 }

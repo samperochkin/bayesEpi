@@ -4,7 +4,7 @@
 \alias{gaussian_prior}
 \title{Specify a Gaussian prior distribution.}
 \usage{
-gaussian_prior(prec = 0.001)
+gaussian_prior(prec = 0.01)
 }
 \arguments{
 \item{prec}{TO DO.}
@@ -14,4 +14,7 @@ A list specifying a Gaussian prior distribution.
 }
 \description{
 Specify a Gaussian prior distribution.
+}
+\examples{
+gaussian_prior()
 }

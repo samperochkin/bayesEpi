@@ -4,17 +4,42 @@
 \alias{ccModel}
 \title{Constructor for ccModel (S3) objects.}
 \usage{
-ccModel(fixed, random, overdispersion, design, control_aghq)
+ccModel(
+  response,
+  time_index,
+  fixed,
+  random,
+  overdispersion,
+  design,
+  control_aghq
+)
 }
 \arguments{
-\item{.}{TO DO}
+\item{response}{Name of the response variable (e.g., count).}
+
+\item{time_index}{Name of the time variable (e.g., date or time)}
+
+\item{fixed}{Named list of fixed effects. Each name should correspond to a variable in your data.}
+
+\item{random}{Named list of random effects. Each name should correspond to a variable in your data.}
+
+\item{overdispersion}{List specifying the model for the overdispersion terms. This is limited to \code{gaussian_effect()} for now.}
+
+\item{design}{List specifying the case control referent frames.}
+
+\item{control_aghq}{List of parameters to be passed to the aghq::quad function.}
 }
 \value{
-. TO DO
+A list of lists of class "ccModel".
 }
 \description{
 Constructor for ccModel (S3) objects.
 }
 \examples{
-TO DO
+model <- ccModel(response = "count", time_index = "date",
+                 fixed = list("hum_mean" = fixedEffect(gaussian_prior())),
+                 random = list("o3_lag" = randomEffect(rw_effect(), pc_prep_prior()),
+                               "temp_lag" = randomEffect(rw_effect(), pc_prep_prior())),
+                 overdispersion = randomEffect(gaussian_effect(), pc_prep_prior(u = 10, alpha = .9)),
+                 design = ccDesign(), control_aghq = controlAGHQ())
 }

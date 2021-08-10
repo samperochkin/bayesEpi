@@ -2,16 +2,26 @@
 % Please edit documentation in R/distribution_specifiers.R
 \name{pc_prep_prior}
 \alias{pc_prep_prior}
-\title{Specify an exponential (Penalized Complexity) prior distribution.}
+\title{Specify an exponential (penalized complexity) prior distribution.}
 \usage{
 pc_prep_prior(alpha = 0.5, u = 0.01)
 }
 \arguments{
-\item{prec}{TO DO.}
+\item{alpha}{A probability.}
+
+\item{u}{A value greater than 0.}
 }
 \value{
 A list specifying a pc prep prior distribution.
 }
 \description{
-Specify an exponential (Penalized Complexity) prior distribution.
+PC prior distribution; see \insertCite{Simpson:2017;textual}{bayesEpi}. The parameters are such that \eqn{P(\sigma > u) = \alpha}, where \eqn{\sigma = -2log(\theta)}.
+}
+\examples{
+pc_prep_prior(alpha = .5, u = .01)
+}
+\references{
+{
+\insertRef{Simpson:2017}{bayesEpi}
+}
 }
