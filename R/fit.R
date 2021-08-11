@@ -5,9 +5,10 @@
 #'
 #' @param model A model, either a ccModel or a tsModel object.
 #' @param data The dataset on which the model is fitted. It should contain all the variables involved in the model.
+#' @param silent A boolean indicating whether you wish to silence the `aghq::marginal_laplace_tmb()` function (default is `TRUE`).
 #' @return An updated ccModel or tsModel object that contains the fitted model (e.g., in ccModel$fit).
 #' @export
-fitModel <- function(model, data){
+fitModel <- function(model, data, silent = T){
   UseMethod("fitModel", model)
 }
 
@@ -16,7 +17,7 @@ fitModel <- function(model, data){
 #' @useDynLib cc
 #' @import TMB
 #' @importFrom magrittr %>%
-fitModel.ccModel <- function(model, data){
+fitModel.ccModel <- function(model, data, silent){
 
   data <- as.data.frame(data)
   list2env(checkups(model, data), envir = environment())
@@ -59,7 +60,7 @@ fitModel.ccModel <- function(model, data){
 
   # dyn.load(TMB::dynlib("cc"))
   obj <- TMB::MakeADFun(tmb_data, parameters, random = c("beta","gamma","z"), DLL="bayesEpi", hessian=T)
-  quad <- aghq::marginal_laplace_tmb(obj, model$control_aghq$k, theta_init)
+  invisible(capture.output(quad <- aghq::marginal_laplace_tmb(obj, model$control_aghq$k, theta_init)))
 
   list(quad = quad, obj = obj, model = model)
 }

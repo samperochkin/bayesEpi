@@ -72,7 +72,7 @@ template<class Type>
     log_likelihood -= count(i) * log(1 + hazard_ratio_sum);
   }
   REPORT(log_likelihood);
-  Rcout << "ll : " << log_likelihood << "\n";
+  // Rcout << "ll : " << log_likelihood << "\n";
 
   /*--------------------------------------------------------------------------*/
   /* LOG LIKELIHOOD BETA -----------------------------------------------------*/
@@ -81,7 +81,7 @@ template<class Type>
   Type log_pi_beta = 0;
   for(int i=0;i<beta_dim;i++) log_pi_beta += dnorm(beta(i), Type(0), 1/sqrt(beta_prec(i)), true);
   REPORT(log_pi_beta);
-  Rcout << "lbeta : " << log_pi_beta << "\n";
+  // Rcout << "lbeta : " << log_pi_beta << "\n";
 
 
   /*--------------------------------------------------------------------------*/
@@ -97,7 +97,7 @@ template<class Type>
   }
   Type log_pi_gamma = 0.5*(log_det_Q - (v*(Q*gamma).col(0)).sum());
   REPORT(log_pi_gamma);
-  Rcout << "lgamma : " << log_pi_gamma << "\n";
+  // Rcout << "lgamma : " << log_pi_gamma << "\n";
 
 
   /*--------------------------------------------------------------------------*/
@@ -106,7 +106,7 @@ template<class Type>
   Type log_pi_z = 0;
   if(z_dim != 0) log_pi_z += dnorm(z, Type(0), 1/sqrt(exp(theta(theta_dim-1))+1), true).sum();
   REPORT(log_pi_z);
-  Rcout << "lz : " << log_pi_z << "\n";
+  // Rcout << "lz : " << log_pi_z << "\n";
 
 
   /*--------------------------------------------------------------------------*/
@@ -123,7 +123,7 @@ template<class Type>
     }
   }
   REPORT(log_prior_theta);
-  Rcout << "ltheta : " << log_prior_theta << "\n";
+  // Rcout << "ltheta : " << log_prior_theta << "\n";
 
 
 
