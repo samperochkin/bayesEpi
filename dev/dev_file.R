@@ -1,5 +1,5 @@
 # library(bayesEpi)
-load_all()
+devtools::load_all()
 
 # Packages ----------------------------------------------------------------
 library(data.table)
@@ -33,17 +33,17 @@ gen_pars <- fread("~/Git/air-pollution-models/R/simulations/simulation-1/generat
 gen_pars$nonlinear_covariates <- strsplit(gen_pars$nonlinear_covariates,"|",fixed=T)
 
 # load delta matrix
-delta_mat <- readRDS("~/Git/air-pollution-models/R/simulations/simulation-1/PTS-INLA-1/delta_mat.rds")
+delta_mat <- readRDS("../../air-pollution-models/R/simulations/simulation-1/PTS-INLA-1/delta_mat.rds")
 theta_z <- 1
-data <- readRDS("~/Git/air-pollution-models/R/simulations/simulation-1/PTS-INLA-1/data.rds")
+data <- readRDS("/store/samuel/simulations-air-pollution-1/generating-models/ts-inla-1/data.rds")
 data$count <- generateCounts(gen_pars, delta_mat, theta_z)
 
 model <- ccModel(response = "count",
                  time_index = "date",
                  fixed = list("hum_mean" = fixedEffect(gaussian_prior())),
-                 random = list("o3_lag" = randomEffect(rw_effect(), pc_prep_prior()),
-                               "temp_lag" = randomEffect(rw_effect(), pc_prep_prior())),
-                 overdispersion = randomEffect(gaussian_effect(), pc_prep_prior(u = 10, alpha = .9)),
+                 random = list("o3lag" = randomEffect(rw_effect(), pc_prep_prior()),
+                               "temp4lag" = randomEffect(rw_effect(), pc_prep_prior())),
+                 overdispersion = randomEffect(gaussian_effect(), pc_prep_prior()),
                  design = ccDesign(),
                  control_aghq = controlAGHQ())
 

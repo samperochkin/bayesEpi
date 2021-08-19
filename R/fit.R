@@ -8,7 +8,7 @@
 #' @param silent A boolean indicating whether you wish to silence the `aghq::marginal_laplace_tmb()` function (default is `TRUE`).
 #' @return An updated ccModel or tsModel object that contains the fitted model (e.g., in ccModel$fit).
 #' @export
-fitModel <- function(model, data, silent = T){
+fitModel <- function(model, data, silent = F, dll = NULL){
   UseMethod("fitModel", model)
 }
 
@@ -17,7 +17,7 @@ fitModel <- function(model, data, silent = T){
 #' @useDynLib cc
 #' @import TMB
 #' @importFrom magrittr %>%
-fitModel.ccModel <- function(model, data, silent){
+fitModel.ccModel <- function(model, data, silent = F, dll = NULL){
 
   data <- as.data.frame(data)
   list2env(checkups(model, data), envir = environment())
@@ -58,9 +58,14 @@ fitModel.ccModel <- function(model, data, silent){
                      theta = theta_init)
 
 
-  # dyn.load(TMB::dynlib("cc"))
-  obj <- TMB::MakeADFun(tmb_data, parameters, random = c("beta","gamma","z"), DLL="bayesEpi", hessian=T)
-  invisible(capture.output(quad <- aghq::marginal_laplace_tmb(obj, model$control_aghq$k, theta_init)))
+  if(is.null(dll)) dll <- "bayesEpi"
+  obj <- TMB::MakeADFun(tmb_data, parameters, random = c("beta","gamma","z"), DLL=dll, hessian=T)
+
+  if(silent){
+    invisible(capture.output(quad <- aghq::marginal_laplace_tmb(obj, model$control_aghq$k, theta_init)))
+  }else{
+    quad <- aghq::marginal_laplace_tmb(obj, model$control_aghq$k, theta_init)
+  }
 
   list(quad = quad, obj = obj, model = model)
 }
@@ -90,7 +95,7 @@ renameResponseTimeIndex <- function(model, data){
 
   if(!(model$response == "count")){
     if("count" %in% names(data)){
-      cat("Renaming the response 'count' and removing the original 'count' variable.\n")
+      message("Renaming the response 'count' and removing the original 'count' variable.")
       data$count <- NULL
     }
     names(data)[names(data) == model$response] <- "count"
@@ -99,7 +104,7 @@ renameResponseTimeIndex <- function(model, data){
 
   if(!(model$time_index == "time")){
     if("time" %in% names(data)){
-      cat("Renaming the time_index 'time' and removing the original 'time' variable.\n")
+      message("Renaming the time_index 'time' and removing the original 'time' variable.")
       data$time <- NULL
     }
     names(data)[names(data) == model$time_index] <- "time"
@@ -116,7 +121,7 @@ removeNA <- function(model, data){
 
   if(length(NA_rows) > 0){
     data <- data[-NA_rows,]
-    cat(length(NA_rows), "row(s) with one or more variables of interest with value NA were found.\n They were removed.\n")
+    message(length(NA_rows), "row(s) with one or more variables of interest with value NA were found. They were removed.")
     return(list(data = data))
   }else{
     return(list())
@@ -195,7 +200,7 @@ interpolationFixedEffects <-  function(random, U){
       random_extra <- random[[name]]$model$extra
       poly_degree <- random[[name]]$model$params$poly_degree
       if (poly_degree %in% c(0, 1)) {
-        cat("poly_degree for the random walk ", name,
+        message("poly_degree for the random walk ", name,
             " was set to ", poly_degree, ". Such poly_degree means no interpolation.")
         return(NULL)
       }
@@ -250,7 +255,9 @@ getCaseControl <- function(data, model){
   control_days <- control_days[keep,]
 
   # filter out days that are neither case nor control days
-  data <- data[time %in% unique(c(case_day,control_days)),]
+  keep <- time %in% unique(c(case_day,control_days))
+  time <- time[keep]
+  data <- data[keep,]
 
   case_day <- (1:nrow(data))[match(case_day, time)]
   control_days <- matrix((1:nrow(data))[match(control_days, time, nomatch = NA)], nrow(control_days))

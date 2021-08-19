@@ -23,5 +23,12 @@ randomEffect <- function(model, theta_prior, beta_prior){
   if(!is.null(model$params$poly_degree) & missing(beta_prior)){
     beta_prior <- gaussian_prior(prec = rep(.001, model$params$poly_degree))
     list(model = model, theta_prior = theta_prior, beta_prior = beta_prior)
-  }else list(model = model, theta_prior = theta_prior)
+  }else if(!is.null(model$params$poly_degree)){
+    # DO A CHECK FOR THE LENGTH OF BETA_PREC AND POLY_DEGREE
+    list(model = model, theta_prior = theta_prior, beta_prior = beta_prior)
+  }else{
+    # CHECK if beta_prior if provided a message that it's not going to be used.
+    list(model = model, theta_prior = theta_prior)
+  }
 }
+
