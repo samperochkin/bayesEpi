@@ -15,7 +15,10 @@
 #'                  overdispersion = randomEffect(gaussian_effect(), pc_prep_prior(u = 10, alpha = .9)),
 #'                  design = ccDesign(), control_aghq = controlAGHQ())
 #' @export
-ccModel <- function(response, time_index, fixed, random, overdispersion, design, control_aghq){
+ccModel <- function(response, time_index,
+                    fixed = NULL, random = NULL, overdispersion = NULL,
+                    design,
+                    control_aghq = controlAGHQ()){
   model <- mget(names(formals()),sys.frame(sys.nframe()))
   attr(model, "class") <- "ccModel"
   model
@@ -61,7 +64,7 @@ ccDesign <- function(...){
                  lag = 7,
                  stratum_rule = NULL)
   design[names(params)] <- params
-  if(design$scheme == "time stratified" & is.null(design$stratum_rule)) design$stratum_rule <- "month"
+  if(design$scheme == "time stratified" & is.null(design$stratum_rule)) design$stratum_rule <- "sequential"
   return(design)
 }
 

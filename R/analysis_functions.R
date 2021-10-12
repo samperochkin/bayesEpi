@@ -80,26 +80,36 @@ getResults <- function(fit, probs = .5, M = 1e4){
   #
   #
 
-  # values that will make up the output data frame
+  #### setup ####
+  # ghost gammas are the gamma parameters set to zero by the algorithm
   bin_values <- lapply(model$random, function(ran) ran$model$extra$bin_values)
   removed_cols <- lapply(model$random, function(ran) ran$model$extra$removed_cols)
   gamma_x_values <- lapply(seq_along(bin_values), function(k) bin_values[[k]][-removed_cols[[k]]])
-  names(gamma_x_values) <- names(model$random)
+  ghost_gamma_x_values <- lapply(seq_along(bin_values), function(k) bin_values[[k]][removed_cols[[k]]])
+  names(gamma_x_values) <- names(ghost_gamma_x_values) <- names(model$random)
+
+
+  #### standard outputs ####
   poly_degrees <- sapply(model$random, function(ran) ran$model$params$poly_degree)
   variable_value <- c(rep(as.numeric(NA), length(model$fixed) + sum(poly_degrees)), unlist(gamma_x_values))
-
   variable_name <- c(names(model$fixed),
                      unlist(lapply(names(model$random), function(nam) rep(nam, poly_degrees[[nam]]))),
                      unlist(lapply(names(model$random), function(nam) rep(nam, length(gamma_x_values[[nam]])))))
+  parameter_type <- c(rownames(quad_samples$samps))
 
-  parameter_type <- rownames(quad_samples$samps)
+
+  #### Add beta and gamma to get final output ####
+  # Note that we do this to the ghost gammas as well, which is why we want them in the output...
+  ghost_gamma_samps <- replicate(length(model$random),NULL)
+  names(ghost_gamma_samps) <- names(model$random)
 
   for(nam in names(model$random)){
 
     # find corresponding gamma (ids) and variable_value
     is_gamma_type <- parameter_type[!grepl("z",parameter_type)] == "gamma" # excluding overdispersion
     gamma_id <- which(is_gamma_type & grepl(nam, x = variable_name))
-    x_values <- variable_value[gamma_id] - model$random[[nam]]$model$params$ref_value
+    # ************************************************************************************************************** WATCH OUT
+    x_values <- c(model$random[[nam]]$model$extra$bin_values_int[-removed_cols[[nam]],1]) # variable_value[gamma_id] - model$random[[nam]]$model$params$ref_value
 
     # find corresponding betas (ids)
     is_beta_type <- parameter_type[!grepl("z",parameter_type)] == "beta"
@@ -110,22 +120,39 @@ getResults <- function(fit, probs = .5, M = 1e4){
       lapply(seq_along(beta_id), function(i){
         tcrossprod(x_values^i, quad_samples$samp[beta_id[i],])
       }) %>% Reduce(f = "+")
+
+    # do the same with "ghost" gammas
+    # ************************************************************************************************************** WATCH OUT
+    x_values <- c(model$random[[nam]]$model$extra$bin_values_int[removed_cols[[nam]],1]) # x_values <- bin_values[[nam]][removed_cols[[nam]]] - model$random[[nam]]$model$params$ref_value
+    ghost_gamma_samps[[nam]] <- lapply(seq_along(beta_id), function(i){
+      tcrossprod(x_values^i, quad_samples$samp[beta_id[i],])
+    }) %>% Reduce(f = "+")
   }
 
+  ghost_gamma_samps <- Reduce("rbind", ghost_gamma_samps)
+
+  #### overdispersion output ####
   if(!is.null(model$overdispersion)){
-    parameter_type[grepl("z",parameter_type)] <- "gamma" # for consistency with PTS-INLA models
+    parameter_type[grepl("z", parameter_type)] <- "gamma" # for consistency with PTS-INLA models
     variable_name <- c(variable_name, rep("z", length(parameter_type) - length(variable_name)))
     variable_value <- c(variable_value, seq(1, length(parameter_type) - length(variable_value),1))
   }
 
+  #### ghost gammas output ####
+  # These are the gamma parameters set to zero by the algorithm. We still want them in the output
+  parameter_type <- c(parameter_type, rep("gamma", length(unlist(ghost_gamma_x_values))))
+  variable_name <- c(variable_name, unlist(lapply(names(model$random), function(nam) rep(nam, length(ghost_gamma_x_values[[nam]])))))
+  variable_value <- c(variable_value, unlist(ghost_gamma_x_values))
+
+
   res_frame <- data.frame(parameter_type = as.factor(parameter_type),
                           variable_name = as.factor(variable_name),
                           variable_value = variable_value,
-                          mean = rowMeans(quad_samples$samps),
-                          median = apply(quad_samples$samps, 1, median),
-                          sd = apply(quad_samples$samps, 1, sd))
+                          mean = rowMeans(rbind(quad_samples$samps, ghost_gamma_samps)),
+                          median = apply(rbind(quad_samples$samps, ghost_gamma_samps), 1, median),
+                          sd = apply(rbind(quad_samples$samps, ghost_gamma_samps), 1, sd))
 
-  quants <- t(matrix(c(apply(quad_samples$samps, 1, quantile, probs = probs)), nrow = length(probs)))
+  quants <- t(matrix(c(apply(rbind(quad_samples$samps, ghost_gamma_samps), 1, quantile, probs = probs)), nrow = length(probs)))
   colnames(quants) <- paste0("perc_", probs*100)
   rownames(quants) <- NULL
 
@@ -149,7 +176,8 @@ getResults <- function(fit, probs = .5, M = 1e4){
   colnames(quants) <- paste0("perc_", probs*100)
 
   res_frame <- rbind(res_frame, cbind(res_frame_theta, quants))
-  return(res_frame)
+  res_frame <- res_frame[order(res_frame$parameter_type, res_frame$variable_name, res_frame$variable_value),]
 
+  return(res_frame)
 }
 

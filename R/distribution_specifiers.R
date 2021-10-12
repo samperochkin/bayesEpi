@@ -16,7 +16,7 @@
 #' rw_effect()
 ### SAM : TALK WITH ALEX FOR MIDMAT THING!
 #' @export
-rw_effect <- function(order = 3,
+rw_effect <- function(order = 2,
                       poly_degree = order-1,
                       ref_value = median,
                       binwidth = 1){
@@ -46,7 +46,7 @@ gaussian_effect <- function(){
 #' @examples
 #' gaussian_prior()
 #' @export
-gaussian_prior <- function(prec = .01){
+gaussian_prior <- function(prec = .001){
   list(type="gaussian", params = mget(names(formals()),sys.frame(sys.nframe())))
 }
 
@@ -66,7 +66,7 @@ gaussian_prior <- function(prec = .01){
 #' @examples
 #' pc_prep_prior(alpha = .5, u = .01)
 #' @export
-pc_prep_prior <- function(alpha = .5, u = .01){
+pc_prep_prior <- function(alpha = .5, u = .001){
   list(type="pc_prep", params=mget(names(formals()),sys.frame(sys.nframe())))
 }
 
@@ -82,8 +82,8 @@ pc_prep_prior <- function(alpha = .5, u = .01){
 #' gamma_prior(shape=1, rate=.1)
 #' gamma_prior(shape=1, scale=10)
 #' @export
-gamma_prior <- function(shape=1, rate=.1, scale){
-  if(!missing(rate) & !missing(scale)) stop("Only one of shape and scale can be passed to gamma_prior")
-  if(missing(rate)) rate <- 1/scale
+gamma_prior <- function(shape=1, rate=.1, scale=NULL){
+  if(!is.null(rate) & !is.null(scale)) stop("Only one of shape and scale can be passed to gamma_prior")
+  if(!is.null(scale)) rate <- 1/scale
   list(type="gamma", params=list(shape=shape, rate=rate))
 }

@@ -33,7 +33,8 @@ fitModel.ccModel <- function(model, data, silent = F, dll = NULL){
   X <- as.matrix(data[names(model$fixed)])
   U <- as.matrix(data[names(model$random)])
 
-  # discretizes nonlinear random effects, builds polynomial interpolation around reference values, creates As and Xs_int
+  # discretizes nonlinear random effects, builds polynomial interpolation around reference values,
+  # creates As, Xs_int and gamma_dims
   list2env(discretizedRandomDesigns(model, U), envir = environment())
 
   # prior parameters
@@ -45,21 +46,28 @@ fitModel.ccModel <- function(model, data, silent = F, dll = NULL){
 
 
   # Model fit ---------------------------------------------------------------
+  z_pos <- unlist(lapply(1:model$design$lag, function(x) seq(x,nrow(data), (model$design$n_control + 1) * model$design$lag)))
+  z_pos <- (1:nrow(data))[-z_pos]
   tmb_data <- list(count = data[case_day, model$response],
                    case_day = case_day, control_days = control_days,
                    X = cbind(X,Reduce("cbind", Xs_int)), A = Reduce("cbind", As),
-                   Q = constructQ(model$random), gamma_dims = sapply(As, ncol),
-                   beta_prec = beta_prec, theta_prior_id = theta_prior_id, theta_hypers = theta_hypers)
+                   Q = constructQ(model$random), gamma_dims = gamma_dims,
+                   beta_prec = beta_prec, theta_prior_id = theta_prior_id, theta_hypers = theta_hypers,
+                   z_pos = z_pos)
 
   theta_init <- getPriorInit(model)
+  # theta_init <- rep(10,length(theta_init))
+
   parameters <- list(beta = rep(0,ncol(X)+sum(sapply(Xs_int, ncol))),
                      gamma = rep(0, sum(sapply(As, ncol))),
-                     z = rep(0,nrow(data)*overdispersion),
+                     z = rep(0,length(z_pos)*overdispersion),
+                     # z = rep(0,nrow(data)*overdispersion),
                      theta = theta_init)
 
 
   if(is.null(dll)) dll <- "bayesEpi"
   obj <- TMB::MakeADFun(tmb_data, parameters, random = c("beta","gamma","z"), DLL=dll, hessian=T)
+  # obj <- TMB::MakeADFun(tmb_data, parameters, random = c("beta","gamma","z"), DLL=dll, hessian=T, silent=silent)
 
   if(silent){
     invisible(capture.output(quad <- aghq::marginal_laplace_tmb(obj, model$control_aghq$k, theta_init)))
@@ -152,12 +160,19 @@ getColsToRemove <- function(ref_value_pos, order){
 discretizedRandomDesigns <- function(model, U){
 
   random <- model$random
+  if(is.null(random)){
+    return(list(As = list(as(matrix(nrow=nrow(U), ncol=0), "dgTMatrix")),
+                Xs_int = list(matrix(nrow=nrow(U), ncol=0)),
+                gamma_dims = integer(0),
+                model = model))
+  }
+
   random_names <- names(random)
   As <- list()
 
   for(name in random_names){
 
-    if(!("binwidth" %in% names(random[[name]]$model$params))) stop("binwidth is not specified for random effect ", name,". (Only nonlinear effects are implemented.)")
+    if(!("binwidth" %in% names(random[[name]]$model$params))) stop("binwidth is not specified for random effect ", name,".")
 
     random_params <- model$random[[name]]$model$params
 
@@ -178,46 +193,52 @@ discretizedRandomDesigns <- function(model, U){
     model$random[[name]]$model$extra$rounded_ref_value <- rounded_ref_value
     model$random[[name]]$model$extra$ref_value_pos <- ref_value_pos
     model$random[[name]]$model$extra$removed_cols <- removed_cols
-    model$random[[name]]$model$extra$bin_values_int <- poly(bin_values - rounded_ref_value,
-                                                            degree = model$random[[name]]$model$params$poly_degree,
-                                                            raw = TRUE)
+
+    if(random[[name]]$model$params$poly_degree > 0){
+      model$random[[name]]$model$extra$bin_values_int <- poly(bin_values - rounded_ref_value, #****************************************
+                                                              degree = model$random[[name]]$model$params$poly_degree,
+                                                              raw = TRUE)
+      # model$random[[name]]$model$extra$bin_values_int <- poly((bin_values - rounded_ref_value)/diff(range(bin_values)),
+      #                                                         degree = model$random[[name]]$model$params$poly_degree,
+      #                                                         raw = TRUE)
+    }
   }
 
   names(As) <- random_names
   Xs_int <- interpolationFixedEffects(model$random, U)
+  gamma_dims <- sapply(As, ncol)
+  gamma_dims <- gamma_dims[gamma_dims != 0]
 
-  list(As = As, Xs_int = Xs_int, model = model)
+  list(As = As, gamma_dims = gamma_dims, Xs_int = Xs_int, model = model)
 }
 #
 
 # Create new fixed effects as by-products of random effects.
 interpolationFixedEffects <-  function(random, U){
 
-
   random_names <- names(random)
   sapply(random_names, function(name) {
     if ("poly_degree" %in% names(random[[name]]$model$params)) {
       random_extra <- random[[name]]$model$extra
       poly_degree <- random[[name]]$model$params$poly_degree
-      if (poly_degree %in% c(0, 1)) {
-        message("poly_degree for the random walk ", name,
-            " was set to ", poly_degree, ". Such poly_degree means no interpolation.")
-        return(NULL)
-      }
-      X_new <- poly(U[, name] - random_extra$rounded_ref_value,
+      if (poly_degree == 0) return(matrix(nrow=nrow(U), ncol=0))
+
+      X_new <- poly(U[, name] - random_extra$rounded_ref_value, #***********************************************
                     degree = poly_degree, raw = TRUE)
-      colnames(X_new) <- paste0(name, "__", attr(X_new,
-                                                 "degree"))
+      # X_new <- poly((U[, name] - random_extra$rounded_ref_value)/diff(range(U[, name])),
+      #               degree = poly_degree, raw = TRUE)
+      colnames(X_new) <- paste0(name, "__", attr(X_new, "degree"))
       return(X_new)
     }
     else {
-      return(NULL)
+      return(matrix(nrow=nrow(U), ncol=0))
     }
   }, simplify = FALSE, USE.NAMES = TRUE)
 }
 #
 
 # Create the case_day vector and the corresponding control_days matrix.
+#' @import purrr
 getCaseControl <- function(data, model){
 
   design <- model$design
@@ -227,6 +248,7 @@ getCaseControl <- function(data, model){
   if(design$scheme == "unidirectional"){
 
     control_days <- purrr::map(-(design$n_control:1)*design$lag, ~ case_day + .x) %>% Reduce(f="cbind")
+    if(design$n_control == 1) control_days <- as.matrix(control_days)
 
   }else if(design$scheme == "bidirectional"){
 
@@ -236,15 +258,25 @@ getCaseControl <- function(data, model){
 
   }else if(design$scheme == "time stratified"){
 
-    if(design$stratum_rule == "month"){
-      case_day_id <- match(case_day, time)
-      d0 <- paste0(format(data$time, "%Y-%m"),".", time %% design$lag)
-      ind <- time[match(d0,unique(d0))]
-      control_list <- purrr::map(case_day_id, ~ time[which(ind==ind[.x])])
-      max_len <- max(sapply(control_list, length))
-      for(k in seq_along(control_list)) control_list[[k]] <- c(control_list[[k]],rep(0,max_len-length(control_list[[k]])))
-      control_days <- control_list %>% Reduce(f="rbind")
+    case_day_id <- match(case_day, time)
+
+    if(design$stratum_rule == "sequential"){
+      t0 <- min(time)
+      id <- paste(floor((time - t0)/(design$lag * (design$n_control+1))),
+                  (time - t0) %% design$lag, sep = "-")
+
+    }else if(design$stratum_rule == "month"){
+      id <- paste(format(data$time, "%Y-%m"), time %% design$lag, sep=".")
+
     }else stop("The stratum rule", design$stratum_rule, "is not implemented.")
+
+    stratum <- split(time, id)
+    max_len <- max(sapply(stratum, length)) - 1
+    control_days <- lapply(case_day_id, function(c_day_id){
+      con <- setdiff(stratum[[id[c_day_id]]], time[c_day_id])
+      con <- c(con, rep(0, max_len-length(con)))
+      con
+    }) %>% Reduce(f="rbind")
 
   }else{stop("The scheme", design$scheme, "is not implemented.")}
 
@@ -252,7 +284,7 @@ getCaseControl <- function(data, model){
   # filter out case day with no control days
   keep <- apply(matrix(control_days %in% time, nrow=nrow(control_days)),1,any)
   case_day <- case_day[keep]
-  control_days <- control_days[keep,]
+  control_days <- control_days[keep,,drop=F]
 
   # filter out days that are neither case nor control days
   keep <- time %in% unique(c(case_day,control_days))
@@ -262,6 +294,7 @@ getCaseControl <- function(data, model){
   case_day <- (1:nrow(data))[match(case_day, time)]
   control_days <- matrix((1:nrow(data))[match(control_days, time, nomatch = NA)], nrow(control_days))
   control_days[is.na(control_days)] <- 0
+  if(any(rowSums(control_days) == 0)) stop("Error in selecting the control days")
 
   list(data = data, case_day = case_day, control_days = control_days)
 }
@@ -269,6 +302,8 @@ getCaseControl <- function(data, model){
 
 # Construct the precision matrix Q for the random effects (Gaussian random walks).
 constructQ <- function(random){
+
+  if(is.null(random)) return(as(matrix(nrow=0,ncol=0), "dgTMatrix"))
 
   createD <-function(d,p){
     if(p==0) return(Diagonal(d,1))
