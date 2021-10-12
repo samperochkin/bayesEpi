@@ -64,10 +64,10 @@ gaussian_prior <- function(prec = .001){
 #' @param u A value greater than 0.
 #' @return A list specifying a pc prep prior distribution.
 #' @examples
-#' pc_prep_prior(alpha = .5, u = .01)
+#' pc_prec_prior(alpha = .5, u = .01)
 #' @export
-pc_prep_prior <- function(alpha = .5, u = .001){
-  list(type="pc_prep", params=mget(names(formals()),sys.frame(sys.nframe())))
+pc_prec_prior <- function(alpha = .5, u = .001){
+  list(type="pc_prec", params=mget(names(formals()),sys.frame(sys.nframe())))
 }
 
 

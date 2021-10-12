@@ -38,7 +38,7 @@ fitModel.ccModel <- function(model, data, silent = F, dll = NULL){
   list2env(discretizedRandomDesigns(model, U), envir = environment())
 
   # prior parameters
-  prior_lookup <- c("pc_prep", "gamma")
+  prior_lookup <- c("pc_prec", "gamma")
   beta_prec = c(purrr::map(model$fixed, ~ .x$prior$params$prec), purrr::map(model$random, ~ .x$beta_prior$params$prec)) %>% unlist
   theta_prior <- c(purrr::map(model$random, ~ .x$theta_prior$type), z = model$overdispersion$theta_prior$type) %>% unlist
   theta_prior_id = match(theta_prior , prior_lookup)
@@ -333,7 +333,7 @@ getPriorInit <- function(model){
   }
 
   sapply(random_priors, function(ran_prior){
-    if(ran_prior$type == "pc_prep"){
+    if(ran_prior$type == "pc_prec"){
       return(-2*log(-ran_prior$params$u/log(ran_prior$params$alpha)))
     }else if(ran_prior$type == "gamma"){
       return(ran_prior$params$shape/ran_prior$params$rate)

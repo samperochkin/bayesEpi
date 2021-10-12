@@ -17,7 +17,7 @@ fixedEffect <- function(prior = gaussian_prior(prec = .01)){
 #' The number of beta_prior parameters must match the number of coefficients created by the chosen model.
 #' For example, a random walk of order 3 creates (by default) 2 fixed effects. In most cases, this argument should be left unspecified.
 #' @examples
-#' randomEffect(model = rw_effect(), theta_prior = pc_prep())
+#' randomEffect(model = rw_effect(), theta_prior = pc_prec())
 #' @export
 randomEffect <- function(model, theta_prior, beta_prior){
   if(!is.null(model$params$poly_degree) & missing(beta_prior)){
