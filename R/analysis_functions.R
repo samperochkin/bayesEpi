@@ -105,28 +105,36 @@ getResults <- function(fit, probs = .5, M = 1e4){
 
   for(nam in names(model$random)){
 
+
     # find corresponding gamma (ids) and variable_value
     is_gamma_type <- parameter_type[!grepl("z",parameter_type)] == "gamma" # excluding overdispersion
     gamma_id <- which(is_gamma_type & grepl(nam, x = variable_name))
+
+
     # ************************************************************************************************************** WATCH OUT
-    x_values <- c(model$random[[nam]]$model$extra$bin_values_int[-removed_cols[[nam]],1]) # variable_value[gamma_id] - model$random[[nam]]$model$params$ref_value
+    if(model$random[[nam]]$model$params$poly_degree == 0){
+      ghost_gamma_samps[[nam]] <- matrix(0, length(removed_cols[[nam]]), ncol(quad_samples$samps))
 
-    # find corresponding betas (ids)
-    is_beta_type <- parameter_type[!grepl("z",parameter_type)] == "beta"
-    beta_id <- which(is_beta_type & grepl(nam, x = variable_name))
+    }else{
+      x_values <- c(model$random[[nam]]$model$extra$bin_values_int[-removed_cols[[nam]],1]) # variable_value[gamma_id] - model$random[[nam]]$model$params$ref_value
 
-    # multiply beta_i with (x - x0)^i, where x0 is the reference value
-    quad_samples$samps[gamma_id,] <- quad_samples$samps[gamma_id,] +
-      lapply(seq_along(beta_id), function(i){
+      # find corresponding betas (ids)
+      is_beta_type <- parameter_type[!grepl("z",parameter_type)] == "beta"
+      beta_id <- which(is_beta_type & grepl(nam, x = variable_name))
+
+      # multiply beta_i with (x - x0)^i, where x0 is the reference value
+      quad_samples$samps[gamma_id,] <- quad_samples$samps[gamma_id,] +
+        lapply(seq_along(beta_id), function(i){
+          tcrossprod(x_values^i, quad_samples$samp[beta_id[i],])
+        }) %>% Reduce(f = "+")
+
+      # do the same with "ghost" gammas
+      x_values <- c(model$random[[nam]]$model$extra$bin_values_int[removed_cols[[nam]],1]) # x_values <- bin_values[[nam]][removed_cols[[nam]]] - model$random[[nam]]$model$params$ref_value
+      ghost_gamma_samps[[nam]] <- lapply(seq_along(beta_id), function(i){
         tcrossprod(x_values^i, quad_samples$samp[beta_id[i],])
       }) %>% Reduce(f = "+")
+    }
 
-    # do the same with "ghost" gammas
-    # ************************************************************************************************************** WATCH OUT
-    x_values <- c(model$random[[nam]]$model$extra$bin_values_int[removed_cols[[nam]],1]) # x_values <- bin_values[[nam]][removed_cols[[nam]]] - model$random[[nam]]$model$params$ref_value
-    ghost_gamma_samps[[nam]] <- lapply(seq_along(beta_id), function(i){
-      tcrossprod(x_values^i, quad_samples$samp[beta_id[i],])
-    }) %>% Reduce(f = "+")
   }
 
   ghost_gamma_samps <- Reduce("rbind", ghost_gamma_samps)
