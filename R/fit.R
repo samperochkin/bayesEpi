@@ -47,7 +47,7 @@ fitModel.ccModel <- function(model, data, silent = F, dll = NULL){
 
   # Model fit ---------------------------------------------------------------
   if(overdispersion){
-    z_pos <- selectFixedOD(data, model)
+    z_pos <- (1:nrow(data))[-selectFixedOD(data, model)]
   }else{
     z_pos <- interger(0)
   }
