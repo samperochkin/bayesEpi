@@ -46,8 +46,11 @@ fitModel.ccModel <- function(model, data, silent = F, dll = NULL){
 
 
   # Model fit ---------------------------------------------------------------
-  z_pos <- unlist(lapply(1:model$design$lag, function(x) seq(x,nrow(data), (model$design$n_control + 1) * model$design$lag)))
-  z_pos <- (1:nrow(data))[-z_pos]
+  if(overdispersion){
+    z_pos <- selectFixedOD(data, model)
+  }else{
+    z_pos <- interger(0)
+  }
   tmb_data <- list(count = data[case_day, model$response],
                    case_day = case_day, control_days = control_days,
                    X = cbind(X,Reduce("cbind", Xs_int)), A = Reduce("cbind", As),
@@ -299,6 +302,32 @@ getCaseControl <- function(data, model){
   list(data = data, case_day = case_day, control_days = control_days)
 }
 #
+
+# Identify where to remove (not to put) overdispersion terms
+selectFixedOD <- function(data, model){
+
+  if(model$design$scheme == "time stratified"){
+    z_pos <- unique(t(apply(cbind(case_day, control_days),1,sort)))[,1]
+  }else{
+    lag_group <- data$z %% model$design$lag
+
+    z_pos <- lapply(1:model$design$lag - 1, function(l){
+      mem <- which(lag_group == l)
+
+      max_lag <- if(model$design$scheme == "unidirectional"){
+        model$design$n_control*model$design$lag
+      }else if(model$design$scheme == "bidirectional"){
+        # model$design$lag # if only complete ref. frames are allowed..
+        model$design$n_control/2*model$design$lag
+      }
+
+      mem[which(diff(data$z[mem]) > max_lag) + 1]
+    }) %>% unlist
+  }
+
+  return(z_pos)
+}
+
 
 # Construct the precision matrix Q for the random effects (Gaussian random walks).
 constructQ <- function(random){
