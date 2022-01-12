@@ -4,7 +4,7 @@
 \alias{gamma_prior}
 \title{Specify a gamma prior distribution.}
 \usage{
-gamma_prior(shape = 1, rate = 0.1, scale)
+gamma_prior(shape = 1, rate = 0.1, scale = NULL)
 }
 \arguments{
 \item{shape}{Shape parameter (\eqn{\alpha} or \eqn{k}) of the gamma distribution.}

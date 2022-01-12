@@ -38,8 +38,8 @@ Constructor for ccModel (S3) objects.
 \examples{
 model <- ccModel(response = "count", time_index = "date",
                  fixed = list("hum_mean" = fixedEffect(gaussian_prior())),
-                 random = list("o3_lag" = randomEffect(rw_effect(), pc_prep_prior()),
-                               "temp_lag" = randomEffect(rw_effect(), pc_prep_prior())),
-                 overdispersion = randomEffect(gaussian_effect(), pc_prep_prior(u = 10, alpha = .9)),
+                 random = list("o3_lag" = randomEffect(rw_effect(), pc_prec_prior()),
+                               "temp_lag" = randomEffect(rw_effect(), pc_prec_prior())),
+                 overdispersion = randomEffect(gaussian_effect(), pc_prec_prior(u = 10, alpha = .9)),
                  design = ccDesign(), control_aghq = controlAGHQ())
 }

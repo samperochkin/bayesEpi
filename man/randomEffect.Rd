@@ -19,5 +19,5 @@ For example, a random walk of order 3 creates (by default) 2 fixed effects. In m
 Specify a nonlinear random effect.
 }
 \examples{
-randomEffect(model = rw_effect(), theta_prior = pc_prep())
+randomEffect(model = rw_effect(), theta_prior = pc_prec())
 }
