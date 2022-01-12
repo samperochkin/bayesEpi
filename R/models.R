@@ -61,7 +61,7 @@ ccDesign <- function(...){
                  lag = 7,
                  stratum_rule = NULL)
   design[names(params)] <- params
-  if(design$scheme == "time stratified" & is.null(design$stratum_rule)) design$stratum_rule <- "month"
+  if(design$scheme == "time stratified" & is.null(design$stratum_rule)) design$stratum_rule <- "sequential"
   return(design)
 }
 

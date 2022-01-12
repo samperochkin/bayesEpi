@@ -1,4 +1,4 @@
-// Simple linear regression.
+// Overdispersed case crossover.
 #include <TMB.hpp>
 
 /* prior */

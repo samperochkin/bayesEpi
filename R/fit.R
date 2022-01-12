@@ -43,13 +43,13 @@ fitModel.ccModel <- function(model, data, silent = F, dll = NULL){
   theta_prior <- c(purrr::map(model$random, ~ .x$theta_prior$type), z = model$overdispersion$theta_prior$type) %>% unlist
   theta_prior_id = match(theta_prior , prior_lookup)
   theta_hypers = c(purrr::map(model$random, ~ .x$theta_prior$params), z = model$overdispersion$theta_prior$params) %>% unlist
-
+  if(is.null(theta_hypers)) theta_hypers <- numeric(0)
 
   # Model fit ---------------------------------------------------------------
   if(overdispersion){
-    z_pos <- (1:nrow(data))[-selectFixedOD(data, model)]
+    z_pos <- (1:nrow(data))[-selectFixedOD(data, model, case_day, control_days)]
   }else{
-    z_pos <- interger(0)
+    z_pos <- integer(0)
   }
   tmb_data <- list(count = data[case_day, model$response],
                    case_day = case_day, control_days = control_days,
@@ -59,7 +59,6 @@ fitModel.ccModel <- function(model, data, silent = F, dll = NULL){
                    z_pos = z_pos)
 
   theta_init <- getPriorInit(model)
-  # theta_init <- rep(10,length(theta_init))
 
   parameters <- list(beta = rep(0,ncol(X)+sum(sapply(Xs_int, ncol))),
                      gamma = rep(0, sum(sapply(As, ncol))),
@@ -71,6 +70,14 @@ fitModel.ccModel <- function(model, data, silent = F, dll = NULL){
   if(is.null(dll)) dll <- "bayesEpi"
   obj <- TMB::MakeADFun(tmb_data, parameters, random = c("beta","gamma","z"), DLL=dll, hessian=T)
   # obj <- TMB::MakeADFun(tmb_data, parameters, random = c("beta","gamma","z"), DLL=dll, hessian=T, silent=silent)
+
+  if(length(theta_init) == 0){
+    # messy code for cases with no random effects. For simulations purposes only; users should refrain from using it.
+    obj$fn()
+    opt_beta <- obj$env$last.par.best
+    obj <- TMB::MakeADFun(tmb_data, parameters, random = c("gamma","z","theta"), DLL=dll, hessian=T)
+    return(list(beta = opt_beta, sd = 1/sqrt(diag(obj$he(opt_beta, atomic = T))), model = model))
+  }
 
   if(silent){
     invisible(capture.output(quad <- aghq::marginal_laplace_tmb(obj, model$control_aghq$k, theta_init)))
@@ -304,14 +311,14 @@ getCaseControl <- function(data, model){
 #
 
 # Identify where to remove (not to put) overdispersion terms
-selectFixedOD <- function(data, model){
+selectFixedOD <- function(data, model, case_day, control_days){
 
   if(model$design$scheme == "time stratified"){
-    z_pos <- unique(t(apply(cbind(case_day, control_days),1,sort)))[,1]
+    z_rem <- unique(t(apply(cbind(case_day, control_days),1,sort)))[,1]
   }else{
     lag_group <- data$z %% model$design$lag
 
-    z_pos <- lapply(1:model$design$lag - 1, function(l){
+    z_rem <- lapply(1:model$design$lag - 1, function(l){
       mem <- which(lag_group == l)
 
       max_lag <- if(model$design$scheme == "unidirectional"){
@@ -321,11 +328,11 @@ selectFixedOD <- function(data, model){
         model$design$n_control/2*model$design$lag
       }
 
-      mem[which(diff(data$z[mem]) > max_lag) + 1]
+      mem[c(1,which(diff(data$z[mem]) > max_lag) + 1)]
     }) %>% unlist
   }
 
-  return(z_pos)
+  return(z_rem)
 }
 
 
@@ -360,6 +367,8 @@ getPriorInit <- function(model){
   if(!is.null(model$overdispersion)){
     random_priors <- c(random_priors, list(model$overdispersion$theta_prior))
   }
+
+  if(length(random_priors) == 0) return(numeric(0))
 
   sapply(random_priors, function(ran_prior){
     if(ran_prior$type == "pc_prec"){
