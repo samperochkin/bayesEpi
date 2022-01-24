@@ -73,9 +73,9 @@ fitModel.ccModel <- function(model, data, silent = F, dll = NULL){
 
   if(length(theta_init) == 0){
     # messy code for cases with no random effects. For simulations purposes only; users should refrain from using it.
-    obj$fn()
+    invisible(obj$fn())
     opt_beta <- obj$env$last.par.best
-    obj <- TMB::MakeADFun(tmb_data, parameters, random = c("gamma","z","theta"), DLL=dll, hessian=T)
+    invisible(capture.output(obj <- TMB::MakeADFun(tmb_data, parameters, random = c("gamma","z","theta"), DLL=dll, hessian=T)))
     return(list(beta = opt_beta, sd = 1/sqrt(diag(obj$he(opt_beta, atomic = T))), model = model))
   }
 
