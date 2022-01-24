@@ -314,9 +314,11 @@ getCaseControl <- function(data, model){
 selectFixedOD <- function(data, model, case_day, control_days){
 
   if(model$design$scheme == "time stratified"){
-    z_rem <- unique(t(apply(cbind(case_day, control_days),1,sort)))[,1]
+    z_rem <- unique(apply(cbind(case_day, control_days),1, function(days){
+      sort(days[days != 0])[1]
+    }))
   }else{
-    lag_group <- data$z %% model$design$lag
+    lag_group <- as.integer(data$time) %% model$design$lag
 
     z_rem <- lapply(1:model$design$lag - 1, function(l){
       mem <- which(lag_group == l)
