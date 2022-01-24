@@ -62,8 +62,8 @@ fitModel.ccModel <- function(model, data, silent = F, dll = NULL){
 
   parameters <- list(beta = rep(0,ncol(X)+sum(sapply(Xs_int, ncol))),
                      gamma = rep(0, sum(sapply(As, ncol))),
-                     z = rep(0,length(z_pos)*overdispersion),
-                     # z = rnorm(length(z_pos)*overdispersion, sd = 1/exp(theta_init[length(theta_init)])),
+                     # z = rep(0,length(z_pos)*overdispersion),
+                     z = rnorm(length(z_pos)*overdispersion, sd = sqrt(exp(-theta_init[length(theta_init)]))),
                      theta = theta_init)
 
 
@@ -362,7 +362,7 @@ constructQ <- function(random){
 }
 
 # Compute initial theta parameter to be passed to aghq::quad.
-getPriorInit <- function(model, init_od_to_none = T){
+getPriorInit <- function(model, init_od_to_none = F){
   random_priors <- purrr::map(model$random, ~ .x$theta_prior)
   if(!is.null(model$overdispersion) & !init_od_to_none){
     random_priors <- c(random_priors, list(model$overdispersion$theta_prior))
@@ -382,7 +382,7 @@ getPriorInit <- function(model, init_od_to_none = T){
 
   if(!is.null(model$overdispersion) & init_od_to_none){
     # theta_init = 10 means that var = exp(-10) = .0000454 (i.e. almost no overdispersion at init)
-    theta_init <- c(theta_init, 10)
+    theta_init <- c(theta_init, 100)
   }
 
   return(theta_init)
