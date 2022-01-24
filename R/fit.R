@@ -63,7 +63,7 @@ fitModel.ccModel <- function(model, data, silent = F, dll = NULL){
   parameters <- list(beta = rep(0,ncol(X)+sum(sapply(Xs_int, ncol))),
                      gamma = rep(0, sum(sapply(As, ncol))),
                      z = rep(0,length(z_pos)*overdispersion),
-                     # z = rep(0,nrow(data)*overdispersion),
+                     # z = rnorm(length(z_pos)*overdispersion, sd = 1/exp(theta_init[length(theta_init)])),
                      theta = theta_init)
 
 
@@ -362,15 +362,15 @@ constructQ <- function(random){
 }
 
 # Compute initial theta parameter to be passed to aghq::quad.
-getPriorInit <- function(model){
+getPriorInit <- function(model, init_od_to_none = T){
   random_priors <- purrr::map(model$random, ~ .x$theta_prior)
-  if(!is.null(model$overdispersion)){
+  if(!is.null(model$overdispersion) & !init_od_to_none){
     random_priors <- c(random_priors, list(model$overdispersion$theta_prior))
   }
 
   if(length(random_priors) == 0) return(numeric(0))
 
-  sapply(random_priors, function(ran_prior){
+  theta_init <- sapply(random_priors, function(ran_prior){
     if(ran_prior$type == "pc_prec"){
       return(-2*log(-ran_prior$params$u/log(ran_prior$params$alpha)))
     }else if(ran_prior$type == "gamma"){
@@ -379,4 +379,11 @@ getPriorInit <- function(model){
       stop("Can't get inital values for some theta parameter... Check getPriorInit.")
     }
   })
+
+  if(!is.null(model$overdispersion) & init_od_to_none){
+    # theta_init = 10 means that var = exp(-10) = .0000454 (i.e. almost no overdispersion at init)
+    theta_init <- c(theta_init, 10)
+  }
+
+  return(theta_init)
 }
