@@ -7,16 +7,16 @@
 fitModel(model, data, silent = F, dll = NULL)
 }
 \arguments{
-\item{model}{A model, either a ccModel or a tsModel object.}
+\item{model}{A ccModel object.}
 
 \item{data}{The dataset on which the model is fitted. It should contain all the variables involved in the model.}
 
 \item{silent}{A boolean indicating whether you wish to silence the \code{aghq::marginal_laplace_tmb()} function (default is \code{TRUE}).}
 }
 \value{
-An updated ccModel or tsModel object that contains the fitted model (e.g., in ccModel$fit).
+An updated ccModel object that contains the fitted model (e.g., in ccModel$fit).
 }
 \description{
-Function used for fitting either a ccModel (case crossover model) or a tsModel (time series model, yet to be implemented).
+Function used for fitting a ccModel (case crossover model).
 See the vignettes for examples of its usage.
 }

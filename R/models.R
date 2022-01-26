@@ -21,22 +21,6 @@ ccModel <- function(response, time_index, fixed, random, overdispersion, design,
   model
 }
 
-
-
-#' Constructor for tsModel (S3) objects.
-#' @param . TO DO
-#' @return . TO DO
-#' @examples
-#' TO DO
-#' @export
-tsModel <- function(response, time_index, fixed, random, overdispersion, control_aghq){
-  model <- as.list(match.call()[-1])
-  attr(model, "class") <- "tsModel"
-  model
-}
-
-
-
 #' Specify the case-crossover design to be used by fitModel.
 #'
 #' Function for specifying the case control design.

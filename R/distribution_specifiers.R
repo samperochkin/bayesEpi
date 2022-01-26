@@ -69,21 +69,3 @@ gaussian_prior <- function(prec = .001){
 pc_prec_prior <- function(alpha = .5, u = .001){
   list(type="pc_prec", params=mget(names(formals()),sys.frame(sys.nframe())))
 }
-
-
-
-#' Specify a gamma prior distribution.
-#'
-#' @param shape Shape parameter (\eqn{\alpha} or \eqn{k}) of the gamma distribution.
-#' @param rate Rate parameter (\eqn{\beta}) of the gamma distribution.
-#' @param scale Scale parameter (\eqn{\theta = \beta^{-1}}) of the gamma distribution. Cannot be specified if `rate` is.
-#' @return A list specifying a gamma prior distribution.
-#' @examples
-#' gamma_prior(shape=1, rate=.1)
-#' gamma_prior(shape=1, scale=10)
-#' @export
-gamma_prior <- function(shape=1, rate=.1, scale=NULL){
-  if(!is.null(rate) & !is.null(scale)) stop("Only one of shape and scale can be passed to gamma_prior")
-  if(!is.null(scale)) rate <- 1/scale
-  list(type="gamma", params=list(shape=shape, rate=rate))
-}

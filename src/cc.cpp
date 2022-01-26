@@ -3,22 +3,10 @@
 
 /* prior */
 template <class Type>
-Type log_prior(Type theta, int prior_id, vector<Type> hypers)
+Type log_prior(Type theta, Type alpha, Type u)
 {
-  if (prior_id == 1){
-    Type phi = -log(hypers(0)) / hypers(1);
-    return log(0.5 * phi) - phi * exp(-0.5*theta) - 0.5*theta;
-
-  } else if (prior_id == 2){
-    return dgamma(exp(-theta), hypers(0), Type(1)/hypers(1), true);
-
-  } else{
-
-    Rcout << "You've defined at least one prior distribution that is not yet implemented\n";
-    return 0.0; // SHOULD DEFINITELY THROW AN ERROR HERE
-  }
-
-  return theta;
+  Type phi = -log(alpha) / u;
+  return log(0.5 * phi) - phi * exp(-0.5*theta) - 0.5*theta;
 }
 
 
@@ -140,13 +128,9 @@ Type objective_function<Type>::operator() ()
   /*--------------------------------------------------------------------------*/
   Type log_prior_theta = 0;
   k = 0;
-  vector<Type> hypers_i(2);
   for (int i=0;i<theta.size();i++){
-    if(theta_prior_id(i) == 1 or theta_prior_id(i) == 2){
-      for(int j=0;j<2;j++) hypers_i(j) = theta_hypers(k+j);
-      log_prior_theta += log_prior(theta(i), theta_prior_id(i), hypers_i);
-      k += 2;
-    }
+    log_prior_theta += log_prior(theta(i), theta_hypers(k), theta_hypers(k+1));
+    k += 2;
   }
   REPORT(log_prior_theta);
   // Rcout << "ltheta : " << log_prior_theta << "\n";
