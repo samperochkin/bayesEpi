@@ -4,7 +4,7 @@
 \alias{fitModel}
 \title{Fit a model}
 \usage{
-fitModel(model, data, silent = F, dll = NULL)
+fitModel(model, data, silent = F, params_init = NULL)
 }
 \arguments{
 \item{model}{A ccModel object.}

@@ -11,7 +11,7 @@ ccModel(
   random,
   overdispersion,
   design,
-  control_aghq
+  aghq_input
 )
 }
 \arguments{

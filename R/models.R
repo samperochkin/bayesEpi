@@ -15,7 +15,7 @@
 #'                  overdispersion = randomEffect(gaussian_effect(), pc_prec_prior(u = 10, alpha = .9)),
 #'                  design = ccDesign(), control_aghq = controlAGHQ())
 #' @export
-ccModel <- function(response, time_index, fixed, random, overdispersion, design, control_aghq){
+ccModel <- function(response, time_index, fixed, random, overdispersion, design, aghq_input){
   model <- mget(names(formals()),sys.frame(sys.nframe()))
   attr(model, "class") <- "ccModel"
   model
@@ -53,23 +53,21 @@ ccDesign <- function(...){
 
 #' Set aghq::quad parameters for model fitting.
 #'
-#' .
 #'
-#' So far, controlAGHQ() holds only one parameter, `k`, the number of quadrature points.
 #'
 #' @param ... See details.
 #' @return A list of parameters for use by aghq::aghq.
 #' @examples
-#' controlAGHQ()
-#' controlAGHQ(k=5)
+#' aghqInput()
+#' aghqInput(k=5)
 #' @export
-controlAGHQ <- function(...){
+aghqInput <- function(...){
 
   params = list(...)
 
   # default cc parameters
-  control <- list(k = 3)
+  aghq_input <- list(k = 3, control = aghq::default_control_tmb())
 
-  control[names(params)] <- params
-  return(control)
+  aghq_input[names(params)] <- params
+  return(aghq_input)
 }

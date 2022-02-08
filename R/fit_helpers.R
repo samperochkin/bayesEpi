@@ -284,7 +284,10 @@ getPriorInit <- function(model, init_od_to_none = F){
     if(ran_prior$type == "pc_prec"){
       return(-2*log(-ran_prior$params$u/log(ran_prior$params$alpha)))
     }else if(ran_prior$type == "gamma"){
-      return(ran_prior$params$shape/ran_prior$params$rate)
+      return(-2*log(ran_prior$params$shape/ran_prior$params$rate))
+    }else if(ran_prior$type == "log-gamma"){
+      # return(0)
+      return(digamma(ran_prior$params$shape) - log(ran_prior$params$rate))
     }else{
       stop("Can't get inital values for some theta parameter... Check getPriorInit.")
     }

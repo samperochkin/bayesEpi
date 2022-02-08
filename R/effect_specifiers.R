@@ -21,7 +21,7 @@ fixedEffect <- function(prior = gaussian_prior(prec = .01)){
 #' @export
 randomEffect <- function(model, theta_prior, beta_prior){
   if(!is.null(model$params$poly_degree) & missing(beta_prior)){
-    beta_prior <- gaussian_prior(prec = rep(.001, model$params$poly_degree))
+    beta_prior <- gaussian_prior(prec = rep(.01, model$params$poly_degree))
     list(model = model, theta_prior = theta_prior, beta_prior = beta_prior)
   }else if(!is.null(model$params$poly_degree)){
     # DO A CHECK FOR THE LENGTH OF BETA_PREC AND POLY_DEGREE

@@ -4,7 +4,7 @@
 \alias{pc_prec_prior}
 \title{Specify an exponential (penalized complexity) prior distribution.}
 \usage{
-pc_prec_prior(alpha = 0.5, u = 0.001)
+pc_prec_prior(alpha = 0.5, u = 0.1)
 }
 \arguments{
 \item{alpha}{A probability.}

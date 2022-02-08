@@ -46,7 +46,7 @@ gaussian_effect <- function(){
 #' @examples
 #' gaussian_prior()
 #' @export
-gaussian_prior <- function(prec = .001){
+gaussian_prior <- function(prec = .01){
   list(type="gaussian", params = mget(names(formals()),sys.frame(sys.nframe())))
 }
 
@@ -66,6 +66,6 @@ gaussian_prior <- function(prec = .001){
 #' @examples
 #' pc_prec_prior(alpha = .5, u = .01)
 #' @export
-pc_prec_prior <- function(alpha = .5, u = .001){
+pc_prec_prior <- function(alpha = .5, u = .1){
   list(type="pc_prec", params=mget(names(formals()),sys.frame(sys.nframe())))
 }

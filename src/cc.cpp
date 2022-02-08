@@ -3,10 +3,25 @@
 
 /* prior */
 template <class Type>
-Type log_prior(Type theta, Type alpha, Type u)
+Type log_prior(Type theta, int prior_id, vector<Type> hypers)
 {
-  Type phi = -log(alpha) / u;
-  return log(0.5 * phi) - phi * exp(-0.5*theta) - 0.5*theta;
+  if (prior_id == 1){
+    Type phi = -log(hypers(0)) / hypers(1);
+    return log(0.5 * phi) - phi * exp(-0.5*theta) - 0.5*theta;
+
+  } else if (prior_id == 2){
+    // return dgamma(exp(-theta), hypers(0), Type(1)/hypers(1), true);
+    return hypers(0)*log(hypers(1)) - log(2) - lgamma(hypers(0)) - hypers(1) * exp(-0.5*theta) - 0.5*hypers(0)*theta;
+
+  } else if (prior_id == 3){
+    // return dgamma(exp(-theta), hypers(0), Type(1)/hypers(1), true);
+    return - lgamma(hypers(0)) - hypers(1) * exp(theta) + hypers(0) * (theta + log(hypers(1)));
+
+  } else{
+
+    Rcout << "You've defined at least one prior distribution that is not yet implemented\n";
+    return 0.0; // SHOULD DEFINITELY THROW AN ERROR HERE
+  }
 }
 
 
@@ -27,8 +42,6 @@ Type objective_function<Type>::operator() ()
   DATA_VECTOR(beta_prec);
   DATA_IVECTOR(theta_prior_id);
   DATA_VECTOR(theta_hypers);
-
-  DATA_IVECTOR(z_pos);
 
   PARAMETER_VECTOR(beta);
   PARAMETER_VECTOR(gamma);
@@ -53,10 +66,10 @@ Type objective_function<Type>::operator() ()
 
   if(beta_dim != 0) eta += X*beta;
   if(gamma_dim != 0) eta += A*gamma;
-  // if(z_dim != 0) eta += z;
-  if(z_dim != 0){
-    for(int i = 0;i<z_pos.size();i++) eta(z_pos(i)-1) += z(i);
-  }
+  if(z_dim != 0) eta += z;
+  // if(z_dim != 0){
+  //   for(int i = 0;i<z_dim;i++) eta(i) += z(i);
+  // }
 
 
   /*--------------------------------------------------------------------------*/
@@ -127,14 +140,13 @@ Type objective_function<Type>::operator() ()
   /* LOG PRIOR FOR THETA -----------------------------------------------------*/
   /*--------------------------------------------------------------------------*/
   Type log_prior_theta = 0;
-  k = 0;
+  vector<Type> hypers_i(2);
   for (int i=0;i<theta.size();i++){
-    log_prior_theta += log_prior(theta(i), theta_hypers(k), theta_hypers(k+1));
-    k += 2;
+    for(int j=0;j<2;j++) hypers_i(j) = theta_hypers(j + 2*i);
+    log_prior_theta += log_prior(theta(i), theta_prior_id(i), hypers_i);
   }
   REPORT(log_prior_theta);
   // Rcout << "ltheta : " << log_prior_theta << "\n";
-
 
 
   Type nll = -log_likelihood - log_pi_beta - log_pi_gamma - log_pi_z - log_prior_theta;
