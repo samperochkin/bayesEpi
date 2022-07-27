@@ -14,7 +14,6 @@
 #' @return A list specifying a random walk model for a nonlinear random effect.
 #' @examples
 #' rw_effect()
-### SAM : TALK WITH ALEX FOR MIDMAT THING!
 #' @export
 rw_effect <- function(order = 2,
                       poly_degree = order-1,
@@ -22,6 +21,31 @@ rw_effect <- function(order = 2,
                       binwidth = 1){
 
   list(type="random walk", params=mget(names(formals()),sys.frame(sys.nframe())))
+}
+
+
+
+#' Specify an integrated Wiener process for random effect.
+#'
+#' This is used to approximate Gaussian processes random effects.
+#' By default, fixed effects (x - x_ref)^i, i=1,...,`order`-1
+#' are added to the model.
+#'
+#' @param order Order of the first non-zero derivative.
+#' @param poly_degree Degree of the polynomial for additional fixed effects (by default `order`-1).
+#' Note that the intercept is excluded.
+#' @param ref_value Either a value or a function to be used for computing the reference value.
+#' @param knots Number of (equally spaced) knots to use.
+#' @return A list specifying a integrated Wiener process model for a nonlinear random effect.
+#' @examples
+#' iwp_effect()
+#' @export
+iwp_effect <- function(order = 2,
+                       poly_degree = order-1,
+                       ref_value = median,
+                       knots){
+
+  list(type="integrated Wiener process", params=mget(names(formals()),sys.frame(sys.nframe())))
 }
 
 

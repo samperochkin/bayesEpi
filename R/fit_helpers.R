@@ -3,7 +3,7 @@
 # Checkups
 checkups <- function(model, data){
   findVariables(model, data)
-  list2env(renameResponseTimeIndex(model, data), envir = environment())
+  # list2env(renameResponseTimeIndex(model, data), envir = environment())
   list2env(removeNA(model, data), envir = environment())
   list(model = model, data = data)
 }
@@ -17,28 +17,28 @@ findVariables <- function(model, data){
 }
 
 # For convenience
-renameResponseTimeIndex <- function(model, data){
-
-  if(!(model$response == "count")){
-    if("count" %in% names(data)){
-      message("Renaming the response 'count' and removing the original 'count' variable.")
-      data$count <- NULL
-    }
-    names(data)[names(data) == model$response] <- "count"
-    model$response <- "count"
-  }
-
-  if(!(model$time_index == "time")){
-    if("time" %in% names(data)){
-      message("Renaming the time_index 'time' and removing the original 'time' variable.")
-      data$time <- NULL
-    }
-    names(data)[names(data) == model$time_index] <- "time"
-    model$time_index <- "time"
-  }
-
-  list(model = model, data = data)
-}
+# renameResponseTimeIndex <- function(model, data){
+#
+#   if(model$response != "count"){
+#     if("count" %in% names(data)){
+#       message("Renaming the response 'count' and removing the original 'count' variable.")
+#       data$count <- NULL
+#     }
+#     names(data)[names(data) == model$response] <- "count"
+#     model$response <- "count"
+#   }
+#
+#   if(!(model$time_index == "time")){
+#     if("time" %in% names(data)){
+#       message("Renaming the time_index 'time' and removing the original 'time' variable.")
+#       data$time <- NULL
+#     }
+#     names(data)[names(data) == model$time_index] <- "time"
+#     model$time_index <- "time"
+#   }
+#
+#   list(model = model, data = data)
+# }
 
 # check for NA and remove them.
 removeNA <- function(model, data){
@@ -74,10 +74,12 @@ getColsToRemove <- function(ref_value_pos, order){
   removed_cols
 }
 
-# Discretize range(U[,random_effect]) into bins so that a random walk model can be fitted.
-discretizedRandomDesigns <- function(model, U){
+# builds design matrices for random effects (and those for the associated fixed effects)
+createRandomDesigns <- function(model, U){
 
   random <- model$random
+
+  # If no random effects
   if(is.null(random)){
     return(list(As = list(as(matrix(nrow=nrow(U), ncol=0), "dgTMatrix")),
                 Xs_int = list(matrix(nrow=nrow(U), ncol=0)),
@@ -85,41 +87,61 @@ discretizedRandomDesigns <- function(model, U){
                 model = model))
   }
 
+
   random_names <- names(random)
   As <- list()
 
   for(name in random_names){
 
-    if(!("binwidth" %in% names(random[[name]]$model$params))) stop("binwidth is not specified for random effect ", name,".")
-
     random_params <- model$random[[name]]$model$params
 
-    new_u <- round(U[,name]/random_params$binwidth)
-    bin_values <- min(new_u):max(new_u) * random_params$binwidth
-    fac <- factor(new_u, levels = seq(min(new_u), max(new_u),1), labels = paste0(name,"__",bin_values))
-    A <- Matrix::t(Matrix::fac2sparse(fac, drop.unused.levels = F))
+    if(random[[name]]$model$type == "random walk"){
+      if(!("binwidth" %in% names(random[[name]]$model$params))) stop("binwidth is not specified for random effect ", name,".")
 
-    # Set reference value by setting corresponding column of A (and neighbours) to zero.
-    ref_value_pos <- which.min(abs(random_params$ref_value - bin_values))
-    rounded_ref_value <- bin_values[ref_value_pos]
-    removed_cols <- getColsToRemove(ref_value_pos, random_params$order)
+      new_u <- round(U[,name]/random_params$binwidth)
+      bin_values <- min(new_u):max(new_u) * random_params$binwidth
+      fac <- factor(new_u, levels = seq(min(new_u), max(new_u),1), labels = paste0(name,"__",bin_values))
+      A <- Matrix::t(Matrix::fac2sparse(fac, drop.unused.levels = F))
 
-    As[[length(As)+1]] <- A[, -removed_cols]
+      # Set reference value by setting corresponding column of A (and neighbours) to zero.
+      ref_value_pos <- which.min(abs(random_params$ref_value - bin_values))
+      rounded_ref_value <- bin_values[ref_value_pos]
+      removed_cols <- getColsToRemove(ref_value_pos, random_params$order)
+      As[[length(As)+1]] <- A[, -removed_cols]
 
-    # for later
-    model$random[[name]]$model$extra$bin_values <- bin_values
-    model$random[[name]]$model$extra$rounded_ref_value <- rounded_ref_value
-    model$random[[name]]$model$extra$ref_value_pos <- ref_value_pos
-    model$random[[name]]$model$extra$removed_cols <- removed_cols
+      # for later
+      model$random[[name]]$model$extra$bin_values <- bin_values
+      model$random[[name]]$model$extra$rounded_ref_value <- rounded_ref_value
+      model$random[[name]]$model$extra$ref_value_pos <- ref_value_pos
+      model$random[[name]]$model$extra$removed_cols <- removed_cols
 
-    if(random[[name]]$model$params$poly_degree > 0){
-      model$random[[name]]$model$extra$bin_values_int <- poly(bin_values - rounded_ref_value, #****************************************
-                                                              degree = model$random[[name]]$model$params$poly_degree,
-                                                              raw = TRUE)
-      # model$random[[name]]$model$extra$bin_values_int <- poly((bin_values - rounded_ref_value)/diff(range(bin_values)),
-      #                                                         degree = model$random[[name]]$model$params$poly_degree,
-      #                                                         raw = TRUE)
+      if(random[[name]]$model$params$poly_degree > 0){
+        model$random[[name]]$model$extra$bin_values_int <- poly(bin_values - rounded_ref_value,
+                                                                degree = model$random[[name]]$model$params$poly_degree,
+                                                                raw = TRUE)
+      }
+
+    }else if(random[[name]]$model$type == "integrated Wiener process"){
+
+      knots <- random_params$knots
+      ref_value <- random_params$ref_value
+      ran <- model$random[[name]]$model$extra$range <- range(U[,name])
+
+      if(!(ref_value %in% knots)) stop("ref_value of", name, "cannot be found in the corresponding knots vector. \n")
+      if(!(ran[1] >= knots[1] & ran[2] <= knots[length(knots)])) stop("knots for", name, "do not span its range. \n")
+      if(length(knots) <= 2) stop("knots for ", name, " is too small")
+
+      ref_pos <- which(knots == ref_value)
+      A <- NULL
+      if(ref_pos != 1) A <- cbind(A, as(local_poly(knots = rev(ref_value - knots[1:ref_pos]),
+                                                   refined_x = ref_value - U[,name],
+                                                   p = random_params$order), "sparseMatrix"))
+      if(ref_pos != length(knots)) A <- cbind(A, as(local_poly(knots = knots[ref_pos:length(knots)] - ref_value,
+                                                               refined_x = U[,name] - ref_value,
+                                                               p = random_params$order), "sparseMatrix"))
+      As[[length(As)+1]] <- A
     }
+
   }
 
   names(As) <- random_names
@@ -131,20 +153,34 @@ discretizedRandomDesigns <- function(model, U){
 }
 #
 
-# Create new fixed effects as by-products of random effects.
+# findKnotsPlacement <- function(k, ran, ref_value){
+#
+#   knots <- seq(ran[1], ran[2], length.out = k)
+#   nearest_knot <- which.min(abs(knots - ref_value))
+#   if(nearest_knot == 1) nearest_knot <- 2
+#   if(nearest_knot == k) nearest_knot <- k-1
+#   shift <- ref_value - knots[nearest_knot]
+#
+#   if(shift > 0) knots <- seq(ran[1], ran[2] + shift*(1+1/(nearest_knot-1)*(k-nearest_knot)), length.out = k)
+#   if(shift < 0) knots <- seq(ran[1] + shift*(1+1/(k-nearest_knot)*(nearest_knot-1)), ran[2], length.out = k)
+#
+#   return(knots)
+# }
+#
+
 interpolationFixedEffects <-  function(random, U){
 
   random_names <- names(random)
   sapply(random_names, function(name) {
     if ("poly_degree" %in% names(random[[name]]$model$params)) {
-      random_extra <- random[[name]]$model$extra
+
       poly_degree <- random[[name]]$model$params$poly_degree
       if (poly_degree == 0) return(matrix(nrow=nrow(U), ncol=0))
 
-      X_new <- poly(U[, name] - random_extra$rounded_ref_value, #***********************************************
-                    degree = poly_degree, raw = TRUE)
-      # X_new <- poly((U[, name] - random_extra$rounded_ref_value)/diff(range(U[, name])),
-      #               degree = poly_degree, raw = TRUE)
+      if(random[[name]]$model$type == "random walk") cen <- random[[name]]$model$extra$rounded_ref_value
+      if(random[[name]]$model$type == "integrated Wiener process") cen <- random[[name]]$model$params$ref_value
+
+      X_new <- poly(U[, name] - cen, degree = poly_degree, raw = TRUE)
       colnames(X_new) <- paste0(name, "__", attr(X_new, "degree"))
       return(X_new)
     }
@@ -160,8 +196,8 @@ interpolationFixedEffects <-  function(random, U){
 getCaseControl <- function(data, model){
 
   design <- model$design
-  time <- as.integer(data$time)
-  case_day <- time[data$count > 0]
+  time <- as.integer(data[, model$time_index])
+  case_day <- time[data[, model$response] > 0]
 
   if(design$scheme == "unidirectional"){
 
@@ -184,7 +220,7 @@ getCaseControl <- function(data, model){
                   (time - t0) %% design$lag, sep = "-")
 
     }else if(design$stratum_rule == "month"){
-      id <- paste(format(data$time, "%Y-%m"), time %% design$lag, sep=".")
+      id <- paste(format(data[, model$time_index], "%Y-%m"), time %% design$lag, sep=".")
 
     }else stop("The stratum rule", design$stratum_rule, "is not implemented.")
 
@@ -226,7 +262,7 @@ selectFixedOD <- function(data, model, case_day, control_days){
       sort(days[days != 0])[1]
     }))
   }else{
-    lag_group <- as.integer(data$time) %% model$design$lag
+    lag_group <- as.integer(data[, time_index]) %% model$design$lag
 
     z_rem <- lapply(1:model$design$lag - 1, function(l){
       mem <- which(lag_group == l)
@@ -247,9 +283,39 @@ selectFixedOD <- function(data, model, case_day, control_days){
 
 
 # Construct the precision matrix Q for the random effects (Gaussian random walks).
-constructQ <- function(random){
+# NEED TO BE GENERALIZED TO ALLOW BOTH TYPES (i.e., return sparse diag matrix for iwp too)
+# BUT FOR THIS, the TMB templates need to be merged...
+# constructQ <- function(random){
+#
+#   if(is.null(random)) return(as(matrix(nrow=0,ncol=0), "dgTMatrix"))
+#
+#   createD <-function(d,p){
+#     if(p==0) return(Diagonal(d,1))
+#     D <- Matrix::bandSparse(d,k =c(0,1),diagonals =list(rep(-1,d),rep(1,d-1)))[-d, ]
+#     if(p==1) return(D)
+#     else return(createD(d,p-1)[-1,-1] %*% D)
+#   }
+#
+#   Qs <- lapply(random, function(ran){
+#     if(ran$model$type == "random walk"){
+#       removed_cols <- ran$model$extra$removed_cols
+#       order <- ran$model$params$order
+#       return(Matrix::crossprod(createD(length(ran$model$extra$bin_values), order)[,-removed_cols]))
+#     }else if(ran$model$type == "integrated Wiener process"){
+#       return(diag(compute_weights_precision(x = ran$model$params$knots)))
+#     }
+#   })
+#
+#   # HERE ****** TO GENERALIZE
+#   if(random[[1]]$model$type == "random walk") return(Matrix::bdiag(Qs))
+#   if(random[[1]]$model$type == "integrated Wiener process") return(unlist(Qs))
+# }
+
+constructQ_rw <- function(random){
 
   if(is.null(random)) return(as(matrix(nrow=0,ncol=0), "dgTMatrix"))
+  ids <- which(sapply(random, function(ran) ran$model$type == "random walk"))
+  if(length(ids) == 0) return(as(matrix(nrow=0,ncol=0), "dgTMatrix"))
 
   createD <-function(d,p){
     if(p==0) return(Diagonal(d,1))
@@ -258,18 +324,27 @@ constructQ <- function(random){
     else return(createD(d,p-1)[-1,-1] %*% D)
   }
 
-  Qs <- lapply(random, function(ran){
-    if(ran$model$type == "random walk"){
-
-      removed_cols <- ran$model$extra$removed_cols
-      order <- ran$model$params$order
-      Matrix::crossprod(createD(length(ran$model$extra$bin_values), order)[,-removed_cols])
-
-    }else stop("Not sure how to construct the Q matrix associated to a ", ran$model$type, " random effect model")
+  Qs <- lapply(random[ids], function(ran){
+    removed_cols <- ran$model$extra$removed_cols
+    order <- ran$model$params$order
+    Matrix::crossprod(createD(length(ran$model$extra$bin_values), order)[,-removed_cols])
   })
 
-  Matrix::bdiag(Qs)
+  return(Matrix::bdiag(Qs))
 }
+
+constructQ_iwp <- function(random){
+
+  if(is.null(random)) return(as(matrix(nrow=0,ncol=0), "dgTMatrix"))
+  ids <- which(sapply(random, function(ran) ran$model$type == "integrated Wiener process"))
+  if(length(ids) == 0) return(as(matrix(nrow=0,ncol=0), "dgTMatrix"))
+
+  unlist(lapply(random[ids], function(ran){
+      diag(compute_weights_precision(x = ran$model$params$knots))
+  }))
+}
+
+
 
 # Compute initial theta parameter to be passed to aghq::quad.
 getPriorInit <- function(model, init_od_to_none = F){

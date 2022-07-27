@@ -25,6 +25,7 @@ Type log_prior(Type theta, int prior_id, vector<Type> hypers)
 }
 
 
+
 template<class Type>
 Type objective_function<Type>::operator() ()
 {
@@ -36,7 +37,9 @@ Type objective_function<Type>::operator() ()
   DATA_MATRIX(X);
   DATA_SPARSE_MATRIX(A);
 
-  DATA_SPARSE_MATRIX(Q);
+  DATA_INTEGER(random_effect_id);
+  DATA_SPARSE_MATRIX(Q_rw);
+  DATA_VECTOR(Q_iwp);
   DATA_IVECTOR(gamma_dims);
 
   DATA_VECTOR(beta_prec);
@@ -67,9 +70,6 @@ Type objective_function<Type>::operator() ()
   if(beta_dim != 0) eta += X*beta;
   if(gamma_dim != 0) eta += A*gamma;
   if(z_dim != 0) eta += z;
-  // if(z_dim != 0){
-  //   for(int i = 0;i<z_dim;i++) eta(i) += z(i);
-  // }
 
 
   /*--------------------------------------------------------------------------*/
@@ -110,18 +110,35 @@ Type objective_function<Type>::operator() ()
   /*--------------------------------------------------------------------------*/
   /* LOG LIKELIHOOD GAMMA ----------------------------------------------------*/
   /*--------------------------------------------------------------------------*/
-  Type log_det_Q = 0;
   Type log_pi_gamma = 0;
-  int k = 0;
 
   if(gamma_dim != 0){
-    vector<Type> v(gamma_dim);
-    for(int i=0;i<gamma_dims.size();i++){
-      log_det_Q += theta(i) * Type(gamma_dims(i));
-      for(int j=0;j<gamma_dims(i);j++) v(k+j) = gamma(k+j)*exp(theta(i));
-      k += gamma_dims(i);
+    Type log_det_Q = 0;
+    Type maha = 0;
+    int k = 0;
+
+    if(random_effect_id == 1){
+      // RANDOM WALK
+      vector<Type> v(gamma_dim);
+      for(int i=0;i<gamma_dims.size();i++){
+        log_det_Q += theta(i) * Type(gamma_dims(i));
+        for(int j=0;j<gamma_dims(i);j++) v(k+j) = gamma(k+j)*exp(theta(i));
+        k += gamma_dims(i);
+      }
+      maha += (v*(Q_rw*gamma).col(0)).sum();
+
+    }else if(random_effect_id == 2){
+      // INTEGRATED WIENER PROCESS
+      for(int i=0; i<gamma_dims.size(); i++){
+        for(int j=0; j<gamma_dims(i); j++){
+          log_det_Q += log(Q_iwp(k+j)) + theta(i);
+          maha += gamma(k+j) * exp(theta(i)) * Q_iwp(k+j) * gamma(k+j);
+        }
+        k += gamma_dims(i);
+      }
     }
-    log_pi_gamma += 0.5*(log_det_Q - (v*(Q*gamma).col(0)).sum());
+
+    log_pi_gamma += 0.5*(log_det_Q - maha);
   }
   REPORT(log_pi_gamma);
   // Rcout << "lgamma : " << log_pi_gamma << "\n";

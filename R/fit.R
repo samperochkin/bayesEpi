@@ -16,6 +16,7 @@ fitModel <- function(model, data, silent = F, params_init = NULL){
 #' @export
 #' @useDynLib cc
 #' @importFrom magrittr %>%
+#' @import OSplines
 fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
 
   data <- as.data.frame(data)
@@ -30,9 +31,9 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   X <- as.matrix(data[names(model$fixed)])
   U <- as.matrix(data[names(model$random)])
 
-  # discretizes nonlinear random effects, builds polynomial interpolation around reference values,
+  # bluids design matrices for random effects, polynomial interpolation around reference values,
   # creates As, Xs_int and gamma_dims
-  list2env(discretizedRandomDesigns(model, U), envir = environment())
+  list2env(createRandomDesigns(model, U), envir = environment())
 
   # prior parameters
   prior_lookup <- c("pc_prec", "gamma", "log-gamma")
@@ -42,12 +43,21 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   theta_hypers = c(purrr::map(model$random, ~ .x$theta_prior$params), z = model$overdispersion$theta_prior$params) %>% unlist
   if(is.null(theta_hypers)) theta_hypers <- numeric(0)
 
+
+  #############################
+  if(length(unique(sapply(model$random, function(ran) ran$model$type))) > 1)
+    stop("Random effects must all be of the same type (either 'random walk' or 'integrated Wiener process'). Mixing to be implemented.")
+  #############################
+
+
   # Model fit ---------------------------------------------------------------
   tmb_data <- list(count = data[case_day, model$response],
                    case_day = case_day, control_days = control_days,
                    X = cbind(X,Reduce("cbind", Xs_int)), A = Reduce("cbind", As),
-                   Q = constructQ(model$random), gamma_dims = gamma_dims,
-                   beta_prec = beta_prec,
+                   random_effect_id = match(model$random[[1]]$model$type,
+                                            c("random walk", "integrated Wiener process")),
+                   Q_rw = constructQ_rw(model$random), Q_iwp = constructQ_iwp(model$random),
+                   gamma_dims = gamma_dims, beta_prec = beta_prec,
                    theta_prior_id = theta_prior_id, theta_hypers = theta_hypers)
 
   theta_init <- getPriorInit(model)
@@ -61,7 +71,9 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
     parameters[[param_name]] <- params_init[[param_name]]
   }
 
-  obj <- TMB::MakeADFun(tmb_data, parameters, random = c("beta","gamma","z"), DLL="cc", hessian=T, silent = silent)
+  # dll <- ifelse(model$random[[1]]$model$type == "random walk", "cc_rw", "cc_iwp")
+  dll <- "cc"
+  obj <- TMB::MakeADFun(tmb_data, parameters, random = c("beta","gamma","z"), DLL=dll, hessian=T, silent = silent)
   if(silent){
     quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
                                        startingvalue =  theta_init, control = model$aghq_input$control) %>%
@@ -71,5 +83,5 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
                                        startingvalue =  theta_init, control = model$aghq_input$control)
   }
 
-  list(quad = quad, obj = obj, model = model)
+  list(quad = quad, obj = obj, model = model, U = U)
 }

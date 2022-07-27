@@ -3,7 +3,13 @@
 #' @param quantiles Quantiles of the posterior (cumulative) distribution of fixed and random effects (and overdispersion terms).
 #' @return A data.frame with values of the beta and gamma coefficients, as well as their credible intervals.
 #' @export
-getResults <- function(fit, probs = .5, M = 1e4){
+getResults <- function(fit, probs = .5, M = 1e4, stepsizes = NULL){
+  if(is.null(fit$model$random) || fit$model$random[[1]]$model$type == "random walk") getResults_rw(fit, probs, M)
+  if(is.null(fit$model$random) || fit$model$random[[1]]$model$type == "integrated Wiener process") getResults_iwp(fit, probs, M, stepsizes)
+}
+
+
+getResults_rw <- function(fit, probs = .5, M = 1e4){
 
   # most of what we need
   quad_samples <- aghq::sample_marginal(fit$quad, M)
@@ -189,3 +195,115 @@ getResults <- function(fit, probs = .5, M = 1e4){
   return(res_frame)
 }
 
+
+
+
+
+
+#' Extract results from a fitted ccModel with IWP random effects.
+#' @param fit A fitted ccModel (obtained via `fitModel(model)`).
+#' @param probs Quantiles of the posterior (cumulative) distribution of fixed and random effects (and overdispersion terms).
+#' @param stepsizes Named vector specifying the (reported) stepsize for each random effect.
+#' @return A data.frame with values of the beta and gamma coefficients, as well as their credible intervals.
+#' @import OSplines
+getResults_iwp <- function(fit, probs, M, stepsizes){
+
+  # most of what we need
+  quad_samples <- aghq::sample_marginal(fit$quad, M)
+  model <- fit$model
+
+  fixed_names <- names(model$fixed)
+  random_names <- names(model$random)
+
+  if(is.null(fixed_names)){
+    fixed_df <- NULL
+  }else{
+    fixed_df <- data.frame(parameter_type = "beta",
+                           variable_name = fixed_names,
+                           variable_value = NA,
+                           mean = rowMeans(quad_samples$samps[1:length(fixed_names),]),
+                           median = apply(quad_samples$samps[1:length(fixed_names),], 1, median),
+                           sd = apply(quad_samples$samps[1:length(fixed_names),], 1, sd))
+
+    quants <- t(matrix(c(apply(quad_samples$samps[1:length(fixed_names),], 1, quantile, probs = probs)), nrow = length(probs)))
+    colnames(quants) <- paste0("perc_", probs*100)
+    rownames(quants) <- NULL
+    fixed_df <- cbind(fixed_df, quants)
+  }
+
+
+  random_df <- NULL
+  if(!is.null(random_names)){
+
+    if(is.null(names(stepsizes))){
+      cat("stepsizes is not specified (or ill-specified). Using 1 for all random effects.\n")
+      stepsizes <- rep(1, length(random_names))
+      names(stepsizes) <- random_names
+    }
+
+    counter_beta <- length(fixed_names)
+    counter_gamma <- sum(rownames(quad_samples$samps) == "beta") - counter_beta
+
+    for(nam in random_names){
+
+      random_params <- model$random[[nam]]$model$params
+      knots <- random_params$knots
+      ref_value <- random_params$ref_value
+      ran <- model$random[[nam]]$model$extra$range
+
+      u <- seq(knots[1], knots[length(knots)], stepsizes[nam])
+      ref_pos <- which(knots == ref_value)
+      A <- NULL
+      if(ref_pos != 1) A <- cbind(A, OSplines::local_poly(knots = rev(ref_value - knots[1:ref_pos]),
+                                                   refined_x = ref_value - u,
+                                                   p = random_params$order))
+      if(ref_pos != length(knots)) A <- cbind(A, OSplines::local_poly(knots = knots[ref_pos:length(knots)] - ref_value,
+                                                                      refined_x = u - ref_value,
+                                                                      p = random_params$order))
+
+      id_gamma <- counter_gamma + 1:ncol(A)
+      counter_gamma <- counter_gamma + ncol(A)
+      y <- A %*% quad_samples$samps[id_gamma,]
+      if(random_params$poly_degree > 0){
+        X <- poly(u - ref_value,
+                  degree = random_params$poly_degree,
+                  raw = TRUE)
+        id_beta <- counter_beta + 1:ncol(X)
+        counter_beta <- counter_beta + ncol(X)
+        y <- y + X %*% quad_samples$samps[id_beta,]
+      }
+
+      quants <- t(matrix(c(apply(y, 1, quantile, probs = probs)), nrow = length(probs)))
+      colnames(quants) <- paste0("perc_", probs*100)
+      rownames(quants) <- NULL
+
+      random_df <- rbind(random_df,
+                         cbind(data.frame(parameter_type = "gamma",
+                                          variable_name = nam,
+                                          variable_value = u,
+                                          mean = rowMeans(y),
+                                          median = apply(y, 1, median),
+                                          sd = apply(y, 1, sd)),
+                               quants))
+    }
+  }
+
+
+  #--- THETAS ---#
+  if(!is.null(model$overdispersion)) random_names <- c(random_names, "z")
+
+  theta_df <- data.frame(parameter_type = as.factor("theta"),
+                         variable_name = as.factor(random_names),
+                         variable_value = as.numeric(NA),
+                         mean = sapply(quad_samples$thetasamples, mean),
+                         median = sapply(quad_samples$thetasamples, median),
+                         sd = sapply(quad_samples$thetasamples, sd))
+
+  quants <- do.call("rbind", lapply(quad_samples$thetasamples, function(samp) t(quantile(samp, probs = probs))))
+  colnames(quants) <- paste0("perc_", probs*100)
+
+  theta_df <- cbind(theta_df, quants)
+  theta_df <- theta_df[order(theta_df$parameter_type, theta_df$variable_name, theta_df$variable_value),]
+
+  return(rbind(fixed_df, random_df, theta_df))
+}
