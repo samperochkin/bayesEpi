@@ -61,7 +61,13 @@ fit$obj$env$data$case_day[c(1,7,11)]
 
 res <- getResults(fit, probs = c(.025, .5, .975))
 
-aghq::sample_marginal(fit$quad, 5)
+samps <- aghq::sample_marginal(fit$quad, 5)$samps
+model <- fit$model
+
+new_samps <- combineBetaGamma_iwp(samps, model)
+
+plot(new_samps$x[,1], type = "l", ylim=range(new_samps$x))
+for(k in 2:ncol(new_samps$x)) lines(new_samps$x[,k], col=k)
 
 
 # Plots -------------------------------------------------------------------

@@ -15,8 +15,8 @@ knitr::opts_chunk$set(
 ```
 
 ```{r setup, results = F}
-#library(bayesEpi)
-devtools::load_all("~/Git/packages/bayesEpi")
+library(bayesEpi)
+# devtools::load_all("~/Git/packages/bayesEpi")
 ```
 
 This vignette shows hot to use the `fitModel` function to fit a case crossover model.
@@ -45,10 +45,10 @@ To fit a case crossover model with `count` as response variable, `time` as the t
 model <- bayesEpi::ccModel(response = "count",
                            time_index = "time",
                            fixed = list("hum" = fixedEffect(gaussian_prior())),
-                           random = list("o3" = randomEffect(rw_effect(), pc_prep_prior())),
-                           overdispersion = randomEffect(gaussian_effect(), pc_prep_prior()),
+                           random = list("o3" = randomEffect(rw_effect(), pc_prec_prior())),
+                           overdispersion = randomEffect(gaussian_effect(), pc_prec_prior()),
                            design = ccDesign(),
-                           control_aghq = controlAGHQ())
+                           aghq_input = aghqInput())
 ```
 More fixed or random effects could be added, e.g., with
 `random = list("o3" = randomEffect(rw_effect(), pc_prep_prior()), "other_random_effect" = randomEffect(rw_effect(), pc_prep_prior()))`.
@@ -64,9 +64,9 @@ fit <- fitModel(model, toyData)
 Several functions are provided for analyzing the results returned by `fitModel`.
 Median prediction as well as confidence intervals can be obtained via the function `getResults`.
 ```{r results, results = F}
-# res <- getResults(fit, quantiles = c(.05,.5,.95))
+# res <- getResults(fit, probs = c(.05,.5,.95))
 ```
 
 ```{r plots, results = F}
-# plotResults(res, alpha = .1)
+# TO-DO
 ```

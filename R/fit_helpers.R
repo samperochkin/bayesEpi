@@ -333,14 +333,15 @@ constructQ_rw <- function(random){
   return(Matrix::bdiag(Qs))
 }
 
+#' @import OSplines
 constructQ_iwp <- function(random){
 
-  if(is.null(random)) return(as(matrix(nrow=0,ncol=0), "dgTMatrix"))
+  if(is.null(random)) return(numeric(0))
   ids <- which(sapply(random, function(ran) ran$model$type == "integrated Wiener process"))
-  if(length(ids) == 0) return(as(matrix(nrow=0,ncol=0), "dgTMatrix"))
+  if(length(ids) == 0) return(numeric(0))
 
   unlist(lapply(random[ids], function(ran){
-      diag(compute_weights_precision(x = ran$model$params$knots))
+      diag(OSplines::compute_weights_precision(x = ran$model$params$knots))
   }))
 }
 

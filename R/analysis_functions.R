@@ -4,8 +4,8 @@
 #' @return A data.frame with values of the beta and gamma coefficients, as well as their credible intervals.
 #' @export
 getResults <- function(fit, probs = .5, M = 1e4, stepsizes = NULL){
-  if(is.null(fit$model$random) || fit$model$random[[1]]$model$type == "random walk") getResults_rw(fit, probs, M)
-  if(is.null(fit$model$random) || fit$model$random[[1]]$model$type == "integrated Wiener process") getResults_iwp(fit, probs, M, stepsizes)
+  if(is.null(fit$model$random) || fit$model$random[[1]]$model$type == "random walk") return(getResults_rw(fit, probs, M))
+  if(is.null(fit$model$random) || fit$model$random[[1]]$model$type == "integrated Wiener process") return(getResults_iwp(fit, probs, M, stepsizes))
 }
 
 
