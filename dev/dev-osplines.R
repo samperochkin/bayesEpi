@@ -9,7 +9,7 @@ library(ggplot2)
 # Generating parameters and synthetic data --------------------------------
 
 # number of observations and time index
-n <- (365*4)
+n <- (365*15)
 time <- 1:n
 
 # reference value and associated random effect "x"
@@ -55,19 +55,16 @@ model <- bayesEpi::ccModel(response = "y",
 
 
 fit <- fitModel(model, data)
+res <- getResults(fit, M = 1e4, probs = c(.025, .5, .975))
 
-fit$obj$env$data$case_day[c(1,7,11)]
-(fit$obj$env$data$control_days)[c(1,7,11),]
-
-res <- getResults(fit, probs = c(.025, .5, .975))
-
-samps <- aghq::sample_marginal(fit$quad, 5)$samps
+M <- 5
+samps <- aghq::sample_marginal(fit$quad, M)$samps
 model <- fit$model
+# grids <- list("x" = seq(0,10,2))
+grids <- NULL
 
-new_samps <- combineBetaGamma_iwp(samps, model)
-
-plot(new_samps$x[,1], type = "l", ylim=range(new_samps$x))
-for(k in 2:ncol(new_samps$x)) lines(new_samps$x[,k], col=k)
+new_samps <- combineBetaGamma_iwp(samps, model, grids)
+head(new_samps)
 
 
 # Plots -------------------------------------------------------------------
@@ -85,5 +82,13 @@ gg <- ggplot(res[res$variable_name == "x" & res$parameter_type == "gamma",],
   geom_line(aes(y = median), col="gray") +
   geom_line(aes(y = perc_2.5), col = "coral") +
   geom_line(aes(y = perc_97.5), col = "lightblue")
+gg
+
+new_samps_long <- reshape(new_samps, varying = paste0("samp_", 1:M), v.names = "sample",
+        idvar = "variable_value", timevar = "sample_id", direction = "long")
+gg <- ggplot(new_samps_long, aes(x=variable_value, y=sample, col=as.factor(sample_id))) +
+  theme_light() +
+  geom_line() +
+  facet_wrap(~variable_name)
 gg
 

@@ -2,12 +2,13 @@
 #'
 #' Function used to evaluate random effects (o-splines, including fixed effects for boundary conditions) on a given grid.
 #'
-#' @param samps Corresponding entry of the output of `aghq::marginal_laplace_tmb()`.
+#' @param samps `$samps` output of `aghq::marginal_laplace_tmb()` or similar (see details).
 #' @param model Object of class "ccModel" with iwp random effects (fitted with o-splines).
-#' @param grids Named list of grids on which to evaluate the o-splines.
+#' @param grids Named list of grids on which to evaluate the o-splines (see details).
 #' @return A modification of the samps object containing the o-splines evaluated at the given grid points.
 #'
-#' @details If `grids` is NULL, then the grids for all random effects are constructed automatically.
+#' @details `samps` is a matrix with samples as columns and rows that matches the fixed and random effects of the model.
+#' If `grids` is NULL, then the grids for all random effects are constructed automatically.
 #' If grids is a named list, then only the named random effects are considered;
 #' if their corresponding grid is NULL, then it is constructed automatically.
 #'
@@ -23,7 +24,7 @@ combineBetaGamma_iwp <- function(samps, model, grids = NULL, silent = FALSE){
   }
 
   K <- length(grids)
-  grids <- grids[[intersect(random_names, names(grids))]]
+  grids <- grids[intersect(random_names, names(grids))]
   if(length(grids) < K & !silent) cat("Some name(s) of grids could not be matched. They were dropped.\n")
 
   if(is.null(names(grids))){
@@ -34,7 +35,7 @@ combineBetaGamma_iwp <- function(samps, model, grids = NULL, silent = FALSE){
 
   grids_names <- names(grids)
 
-  if(any(sapply(grids, is.null)) & !silent) cat("Some named grid(s) were set to `NULL`.
+  if(any(sapply(grids, is.null)) && !silent) cat("Some named grid(s) were set to `NULL`.
   Using stepsizes of length 1 and min/max knots to determine the range.\n")
 
   for(nam in grids_names[sapply(grids, is.null)]){
@@ -43,7 +44,10 @@ combineBetaGamma_iwp <- function(samps, model, grids = NULL, silent = FALSE){
   }
 
 
-  new_samps <- NULL
+  new_samps <- as.data.frame(matrix(
+    nrow=0, ncol=2+ncol(samps),
+    dimnames = list(NULL, c("variable_name", "variable_value", paste0("samp_", 1:ncol(samps))))
+  ))
   counter_beta <- length(fixed_names)
   counter_gamma <- sum(rownames(samps) == "beta") - counter_beta
 
@@ -78,9 +82,11 @@ combineBetaGamma_iwp <- function(samps, model, grids = NULL, silent = FALSE){
       y <- y + X %*% samps[id_beta,]
     }
 
-    new_samps <- c(new_samps, list(y))
+    colnames(y) <- paste0("samp_", 1:ncol(samps))
+    y <- data.frame(variable_name = nam, variable_value = u, y)
+
+    new_samps <- rbind(new_samps, y)
   }
-  names(new_samps) <- grids_names
 
   return(new_samps)
 }
