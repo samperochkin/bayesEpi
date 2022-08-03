@@ -14,7 +14,7 @@ fitModel <- function(model, data, silent = F, params_init = NULL){
 
 #' @method fitModel ccModel
 #' @export
-#' @useDynLib cc
+#' @useDynLib bayesEpi
 #' @importFrom magrittr %>%
 #' @import OSplines
 fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
@@ -72,7 +72,7 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   }
 
   # dll <- ifelse(model$random[[1]]$model$type == "random walk", "cc_rw", "cc_iwp")
-  dll <- "cc"
+  dll <- "bayesEpi"
   obj <- TMB::MakeADFun(tmb_data, parameters, random = c("beta","gamma","z"), DLL=dll, hessian=T, silent = silent)
   if(silent){
     quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
