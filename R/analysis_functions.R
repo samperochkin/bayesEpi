@@ -221,11 +221,11 @@ getResults_iwp <- function(fit, probs, M, stepsizes){
     fixed_df <- data.frame(parameter_type = "beta",
                            variable_name = fixed_names,
                            variable_value = NA,
-                           mean = rowMeans(quad_samples$samps[1:length(fixed_names),]),
-                           median = apply(quad_samples$samps[1:length(fixed_names),], 1, median),
-                           sd = apply(quad_samples$samps[1:length(fixed_names),], 1, sd))
+                           mean = rowMeans(quad_samples$samps[1:length(fixed_names),,drop=F]),
+                           median = apply(quad_samples$samps[1:length(fixed_names),,drop=F], 1, median),
+                           sd = apply(quad_samples$samps[1:length(fixed_names),,drop=F], 1, sd))
 
-    quants <- t(matrix(c(apply(quad_samples$samps[1:length(fixed_names),], 1, quantile, probs = probs)), nrow = length(probs)))
+    quants <- t(matrix(c(apply(quad_samples$samps[1:length(fixed_names),,drop=F], 1, quantile, probs = probs)), nrow = length(probs)))
     colnames(quants) <- paste0("perc_", probs*100)
     rownames(quants) <- NULL
     fixed_df <- cbind(fixed_df, quants)
@@ -263,14 +263,14 @@ getResults_iwp <- function(fit, probs, M, stepsizes){
 
       id_gamma <- counter_gamma + 1:ncol(A)
       counter_gamma <- counter_gamma + ncol(A)
-      y <- A %*% quad_samples$samps[id_gamma,]
+      y <- A %*% quad_samples$samps[id_gamma,,drop=F]
       if(random_params$poly_degree > 0){
         X <- poly(u - ref_value,
                   degree = random_params$poly_degree,
                   raw = TRUE)
         id_beta <- counter_beta + 1:ncol(X)
         counter_beta <- counter_beta + ncol(X)
-        y <- y + X %*% quad_samples$samps[id_beta,]
+        y <- y + X %*% quad_samples$samps[id_beta,,drop=F]
       }
 
       quants <- t(matrix(c(apply(y, 1, quantile, probs = probs)), nrow = length(probs)))
