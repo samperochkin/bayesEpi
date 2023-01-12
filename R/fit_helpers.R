@@ -268,7 +268,7 @@ constructQ <- function(random){
     }else stop("Not sure how to construct the Q matrix associated to a ", ran$model$type, " random effect model")
   })
 
-  Matrix::bdiag(Qs)
+  as(as(Matrix::bdiag(Qs), "generalMatrix"), "TsparseMatrix")
 }
 
 # Compute initial theta parameter to be passed to aghq::quad.

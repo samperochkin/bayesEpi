@@ -63,8 +63,8 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
 
   obj <- TMB::MakeADFun(tmb_data, parameters, random = c("beta","gamma","z"), DLL="cc", hessian=T, silent = silent)
   if(silent){
-    quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
-                                       startingvalue =  theta_init, control = model$aghq_input$control) %>%
+    (quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
+                                       startingvalue =  theta_init, control = model$aghq_input$control)) %>%
       capture.output %>% invisible
   }else{
     quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
