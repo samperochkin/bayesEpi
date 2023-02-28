@@ -217,9 +217,15 @@ getCaseControl <- function(data, model){
     if(design$stratum_rule == "sequential"){
       t0 <- min(time)
 
+      # do something with model$design$stratum_var --- data[,model$design$stratum_var]
+      # stop("error)
+
       # id for the stratum (window_id, dow_id)
       id <- paste(floor((time - t0)/(design$lag * (design$n_control+1))),
                   (time - t0) %% design$lag, sep = "-")
+      # id <- paste(floor((time - t0)/(design$lag * (design$n_control+1))),
+      #             (time - t0) %% design$lag,
+      #             stratum_var, sep = "-")
 
     }else if(design$stratum_rule == "month"){
       id <- paste(format(data[, model$time_index], "%Y-%m"), time %% design$lag, sep=".")
