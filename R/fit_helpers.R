@@ -128,7 +128,7 @@ createRandomDesigns <- function(model, U){
       ran <- model$random[[name]]$model$extra$range <- range(U[,name])
 
       if(!(ref_value %in% knots)) stop("ref_value of", name, "cannot be found in the corresponding knots vector. \n")
-      if(!(ran[1] >= knots[1] & ran[2] <= knots[length(knots)])) stop("knots for", name, "do not span its range. \n")
+      if(!(ran[1] >= knots[1] & ran[2] <= knots[length(knots)])) warning("knots for ", name, " do not span its range. Continuing anyway. \n")
       if(length(knots) <= 2) stop("knots for ", name, " is too small")
 
       ref_pos <- which(knots == ref_value)
@@ -216,6 +216,8 @@ getCaseControl <- function(data, model){
 
     if(design$stratum_rule == "sequential"){
       t0 <- min(time)
+
+      # id for the stratum (window_id, dow_id)
       id <- paste(floor((time - t0)/(design$lag * (design$n_control+1))),
                   (time - t0) %% design$lag, sep = "-")
 
@@ -224,8 +226,13 @@ getCaseControl <- function(data, model){
 
     }else stop("The stratum rule", design$stratum_rule, "is not implemented.")
 
+    # stata (case and control days togeteher)
     stratum <- split(time, id)
+
+    # number of columns of control_days matrix
     max_len <- max(sapply(stratum, length)) - 1
+
+    # for each case day, enumerates control days (0 means empty)
     control_days <- lapply(case_day_id, function(c_day_id){
       con <- setdiff(stratum[[id[c_day_id]]], time[c_day_id])
       con <- c(con, rep(0, max_len-length(con)))

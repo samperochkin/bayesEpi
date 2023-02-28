@@ -75,9 +75,11 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   dll <- "bayesEpi"
   obj <- TMB::MakeADFun(tmb_data, parameters, random = c("beta","gamma","z"), DLL=dll, hessian=T, silent = silent)
   if(silent){
-    quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
-                                       startingvalue =  theta_init, control = model$aghq_input$control) %>%
-      capture.output %>% invisible
+    capture.output(quad <- aghq::marginal_laplace_tmb(ff = obj,
+                                                      k = model$aghq_input$k,
+                                                      startingvalue =  theta_init,
+                                                      control = model$aghq_input$control))
+
   }else{
     quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
                                        startingvalue =  theta_init, control = model$aghq_input$control)

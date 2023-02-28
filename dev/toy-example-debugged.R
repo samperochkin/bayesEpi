@@ -1,6 +1,6 @@
 # library(bayesEpi)
 devtools::load_all("~/Git/packages/bayesEpi")
-n <- 1000
+n <- 50
 # toyData <- data.frame(time = seq(n))
 toyData <- data.frame(time = as.Date(seq(n), origin = "1990-07-24"))
 
@@ -44,3 +44,7 @@ library(ggplot2)
 ggplot(res[res$parameter_type == "gamma",], aes(x=variable_value, y=median)) +
   geom_line()
 
+# res0 <- res[res$parameter_type == "gamma" & res$variable_name == "o3",]
+res00 <- res[res$parameter_type == "gamma" & res$variable_name == "o3",]
+plot(res0$variable_value, res0$median, type = "o", cex=.25)
+lines(res00$variable_value, res00$median, type = "o", cex=.25)
