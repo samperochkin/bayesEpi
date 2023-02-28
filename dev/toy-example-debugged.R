@@ -39,3 +39,8 @@ length(toyData$o3)
 
 plot(toyData$time[day_ids], z_means)
 plot(toyData$o3[day_ids], z_means)
+
+library(ggplot2)
+ggplot(res[res$parameter_type == "gamma",], aes(x=variable_value, y=median)) +
+  geom_line()
+
