@@ -3,9 +3,9 @@
 #' @param quantiles Quantiles of the posterior (cumulative) distribution of fixed and random effects (and overdispersion terms).
 #' @return A data.frame with values of the beta and gamma coefficients, as well as their credible intervals.
 #' @export
-getResults <- function(fit, probs = .5, M = 1e4, stepsizes = NULL){
+getResults <- function(fit, probs = .5, M = 1e4, stepsizes = NULL, u_osplines = "knots+stepsize+u"){
   if(is.null(fit$model$random) || fit$model$random[[1]]$model$type == "random walk") return(getResults_rw(fit, probs, M))
-  if(is.null(fit$model$random) || fit$model$random[[1]]$model$type == "integrated Wiener process") return(getResults_iwp(fit, probs, M, stepsizes))
+  if(is.null(fit$model$random) || fit$model$random[[1]]$model$type == "integrated Wiener process") return(getResults_iwp(fit, probs, M, stepsizes, u_osplines))
 }
 
 
@@ -206,7 +206,7 @@ getResults_rw <- function(fit, probs = .5, M = 1e4){
 #' @param stepsizes Named vector specifying the (reported) stepsize for each random effect.
 #' @return A data.frame with values of the beta and gamma coefficients, as well as their credible intervals.
 #' @import OSplines
-getResults_iwp <- function(fit, probs, M, stepsizes){
+getResults_iwp <- function(fit, probs, M, stepsizes, u_osplines){
 
   # most of what we need
   quad_samples <- aghq::sample_marginal(fit$quad, M)
@@ -214,6 +214,13 @@ getResults_iwp <- function(fit, probs, M, stepsizes){
 
   fixed_names <- names(model$fixed)
   random_names <- names(model$random)
+
+  # points where to evaluate the o-splines (or list of method to use)
+  # u_osplines should be a list (of numeric and/or string) or a single string
+  if(!is.list(u_osplines)){
+    u_osplines <- as.list(rep(u_osplines, length(random_names)))
+    names(u_osplines) <- random_names
+  }
 
   if(is.null(fixed_names)){
     fixed_df <- NULL
@@ -251,7 +258,29 @@ getResults_iwp <- function(fit, probs, M, stepsizes){
       ref_value <- random_params$ref_value
       ran <- model$random[[nam]]$model$extra$range
 
-      u <- seq(knots[1], knots[length(knots)], stepsizes[nam])
+      sz <- stepsizes[nam]
+      if(is.numeric(u_osplines[[nam]])){
+        u <- u_osplines[[nam]]
+      }else if(u_osplines[[nam]] == "knots"){
+        u <- knots
+      }else if(u_osplines[[nam]] == "knots+stepsize"){
+        u <- seq(knots[1], knots[length(knots)], stepsizes[nam])
+      }else if(u_osplines[[nam]] == "u"){
+        u <- seq(min(fit$U[,nam]*step), max(fit$U[,nam]), sz)
+      }else if(u_osplines[[nam]] == "knots+stepsize+u"){
+        u_ran <- c(knots[1], knots[length(knots)])
+
+        d_lo <- (min(fit$U[,nam])-u_ran[1])/sz
+        d_hi <- (max(fit$U[,nam])-u_ran[2])/sz
+        if(d_lo < 0) u_ran[1] <- u_ran[1] + floor(d_lo)*sz
+        if(d_hi > 0) u_ran[2] <- u_ran[2] + ceiling(d_hi)*sz
+
+        u <- seq(u_ran[1], u_ran[2], stepsizes[nam])
+      }else{
+        stop("Not a valid u_splines parameter for", nam, "\n")
+      }
+
+
       ref_pos <- which(knots == ref_value)
       A <- NULL
       if(ref_pos != 1) A <- cbind(A, OSplines::local_poly(knots = rev(ref_value - knots[1:ref_pos]),

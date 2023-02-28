@@ -128,7 +128,7 @@ createRandomDesigns <- function(model, U){
       ran <- model$random[[name]]$model$extra$range <- range(U[,name])
 
       if(!(ref_value %in% knots)) stop("ref_value of", name, "cannot be found in the corresponding knots vector. \n")
-      if(!(ran[1] >= knots[1] & ran[2] <= knots[length(knots)])) stop("knots for", name, "do not span its range. \n")
+      if(!(ran[1] >= knots[1] & ran[2] <= knots[length(knots)])) warning("knots for ", name, " do not span its range. Continuing anyway. \n")
       if(length(knots) <= 2) stop("knots for ", name, " is too small")
 
       ref_pos <- which(knots == ref_value)
