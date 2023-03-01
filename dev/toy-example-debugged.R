@@ -1,6 +1,6 @@
 # library(bayesEpi)
 devtools::load_all("~/Git/packages/bayesEpi")
-n <- 500
+n <- 50
 # toyData <- data.frame(time = seq(n))
 toyData <- data.frame(time = as.Date(seq(n), origin = "1990-07-24"))
 
@@ -17,7 +17,7 @@ model <- bayesEpi::ccModel(response = "count",
                            time_index = "time",
                            fixed = list("hum" = fixedEffect(gaussian_prior())),
                            random = list("o3" = randomEffect(iwp_effect(ref_value=10,
-                                                                        knots=seq(0,ceiling(max(toyData$o3))-40,2)), pc_prec_prior())),
+                                                                        knots=seq(0,ceiling(max(toyData$o3)),1)), pc_prec_prior())),
                            overdispersion = randomEffect(gaussian_effect(), pc_prec_prior()),
                            design = ccDesign(scheme = "time stratified"),
                            aghq_input = aghqInput())
@@ -39,6 +39,10 @@ length(toyData$o3)
 
 plot(toyData$time[day_ids], z_means)
 plot(toyData$o3[day_ids], z_means)
+
+library(ggplot2)
+ggplot(res[res$parameter_type == "gamma",], aes(x=variable_value, y=median)) +
+  geom_line()
 
 # res0 <- res[res$parameter_type == "gamma" & res$variable_name == "o3",]
 res00 <- res[res$parameter_type == "gamma" & res$variable_name == "o3",]
