@@ -4,7 +4,7 @@
 \alias{getResults_iwp}
 \title{Extract results from a fitted ccModel with IWP random effects.}
 \usage{
-getResults_iwp(fit, probs, M, stepsizes)
+getResults_iwp(fit, probs, M, stepsizes, u_osplines)
 }
 \arguments{
 \item{fit}{A fitted ccModel (obtained via \code{fitModel(model)}).}

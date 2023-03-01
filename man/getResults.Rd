@@ -4,7 +4,13 @@
 \alias{getResults}
 \title{Extract results from a fitted ccModel.}
 \usage{
-getResults(fit, probs = 0.5, M = 10000, stepsizes = NULL)
+getResults(
+  fit,
+  probs = 0.5,
+  M = 10000,
+  stepsizes = NULL,
+  u_osplines = "knots+stepsize+u"
+)
 }
 \arguments{
 \item{fit}{A fitted ccModel (obtained via \code{fitModel(model)}).}
