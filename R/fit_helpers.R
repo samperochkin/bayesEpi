@@ -194,32 +194,70 @@ interpolationFixedEffects <-  function(random, U){
 # Create the case_day vector and the corresponding control_days matrix.
 #' @import purrr
 getCaseControl <- function(data, model){
+  if(!(is.null(model$design$stratum_var))){
+    design <- model$design
+    if(design$scheme == "time stratified" & design$stratum_rule == "sequential"){
+      time_stratum <- data[, c(model$time_index, design$stratum_var)]
+      time_stratum[,model$time_index] <- sapply(data[, model$time_index], as.integer)
+      time_stratum1 = apply(time_stratum , 1 , paste , collapse = "," )
+      case_day_stratum <- time_stratum[data[, model$response] > 0,]
+      case_day_stratum1 = apply(case_day_stratum , 1 , paste , collapse = "," )
+      case_day_id <- match(case_day_stratum1, time_stratum1)
+      t0 <- min(time_stratum[,model$time_index])
 
+      stratum_variable <- as.matrix(data[, model$design$stratum_var])
+      strata_1 =  as.matrix(floor((time_stratum[,model$time_index] - t0)/(design$lag * (design$n_control+1))))#block
+      strata_2 = as.matrix((time_stratum[,model$time_index] - t0)%%(design$lag)) #day of week
+      id = paste(strata_1, strata_2,stratum_variable,  sep = "-")
+
+      # stata (case and control days togeteher)
+      stratum <- split(time_stratum1, id)
+
+      # number of columns of control_days matrix
+      max_len <- max(sapply(stratum, length)) - 1
+
+      # for each case day, enumerates control days (0 means empty)
+      control_days <- lapply(case_day_id, function(c_day_id){
+        con <- setdiff(stratum[[id[c_day_id]]], time_stratum1[c_day_id])
+        con <- c(con, rep(0, max_len-length(con)))
+        con
+      }) %>% Reduce(f="rbind")
+      # filter out case day with no control days
+      keep <- apply(matrix(control_days %in% time_stratum1, nrow=nrow(control_days)),1,any)
+      case_day_stratum1 <- case_day_stratum1[keep]
+      control_days <- control_days[keep,,drop=F]
+
+      # filter out days that are neither case nor control days
+      keep <- time_stratum1 %in% unique(c(case_day_stratum1 ,control_days))
+      time_stratum1 <- time_stratum1[keep]
+      data <- data[keep,]
+
+      case_day_stratum1 <- (1:nrow(data))[match(case_day_stratum1, time_stratum1)]
+      control_days <- matrix((1:nrow(data))[match(control_days, time_stratum1, nomatch = NA)], nrow(control_days))
+      control_days[is.na(control_days)] <- 0
+      if(any(rowSums(control_days) == 0)) stop("Error in selecting the control days")
+
+      list(data = data, case_day = case_day_stratum1, control_days = control_days)
+    }
+    else stop("The stratum rule", design$stratum_rule, "is not implemented.")
+  }
+  else{
   design <- model$design
   time <- as.integer(data[, model$time_index])
   case_day <- time[data[, model$response] > 0]
-
   if(design$scheme == "unidirectional"){
-
     control_days <- purrr::map(-(design$n_control:1)*design$lag, ~ case_day + .x) %>% Reduce(f="cbind")
     if(design$n_control == 1) control_days <- as.matrix(control_days)
-
   }else if(design$scheme == "bidirectional"){
-
     if(design$n_control %% 2 == 0){a <- design$n_control/2; a <- design$lag*(-a:a)[-(a+1)]}
     else{a <- (design$n_control+1)/2; a <- (-a:a)[-c(a+1,2*a+1)]}
     control_days <- purrr::map(a, ~ case_day + .x) %>% Reduce(f="cbind")
-
   }else if(design$scheme == "time stratified"){
-
     case_day_id <- match(case_day, time)
-
     if(design$stratum_rule == "sequential"){
       t0 <- min(time)
-
       # do something with model$design$stratum_var --- data[,model$design$stratum_var]
       # stop("error)
-
       # id for the stratum (window_id, dow_id)
       id <- paste(floor((time - t0)/(design$lag * (design$n_control+1))),
                   (time - t0) %% design$lag, sep = "-")
@@ -246,8 +284,6 @@ getCaseControl <- function(data, model){
     }) %>% Reduce(f="rbind")
 
   }else{stop("The scheme", design$scheme, "is not implemented.")}
-
-
   # filter out case day with no control days
   keep <- apply(matrix(control_days %in% time, nrow=nrow(control_days)),1,any)
   case_day <- case_day[keep]
@@ -264,6 +300,7 @@ getCaseControl <- function(data, model){
   if(any(rowSums(control_days) == 0)) stop("Error in selecting the control days")
 
   list(data = data, case_day = case_day, control_days = control_days)
+  }
 }
 #
 
