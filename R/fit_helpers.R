@@ -239,7 +239,7 @@ getCaseControl <- function(data, model){
 
       list(data = data, case_day = case_day_stratum1, control_days = control_days)
     }
-    else stop("The stratum rule", design$stratum_rule, "is not implemented.")
+    else stop("The stratum rule ", design$stratum_rule, " is not implemented if a stratum variable is supplied.")
   }
   else{
   design <- model$design
