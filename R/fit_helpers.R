@@ -283,9 +283,7 @@ getPriorInit <- function(model, init_od_to_none = F){
   theta_init <- sapply(random_priors, function(ran_prior){
     if(ran_prior$type == "pc_prec"){
       return(-2*log(-ran_prior$params$u/log(ran_prior$params$alpha)))
-    }else if(ran_prior$type == "gamma"){
-      return(-2*log(ran_prior$params$shape/ran_prior$params$rate))
-    }else if(ran_prior$type == "log-gamma"){
+    }else if(ran_prior$type == "log_gamma"){
       # return(0)
       return(digamma(ran_prior$params$shape) - log(ran_prior$params$rate))
     }else{

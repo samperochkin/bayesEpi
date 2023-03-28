@@ -69,3 +69,17 @@ gaussian_prior <- function(prec = .01){
 pc_prec_prior <- function(alpha = .5, u = .1){
   list(type="pc_prec", params=mget(names(formals()),sys.frame(sys.nframe())))
 }
+
+
+
+#' Specify an log-gamma prior distribution.
+#'
+#' @param alpha shape parameter.
+#' @param beta rate parameter.
+#' @return A list specifying a log-gamma prior distribution.
+#' @examples
+#' log_gamma_prior(alpha = .3, beta = 1e-6)
+#' @export
+log_gamma_prior <- function(shape = .3, rate = 1e-6){
+  list(type="log_gamma", params=mget(names(formals()),sys.frame(sys.nframe())))
+}
