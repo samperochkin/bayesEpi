@@ -70,7 +70,8 @@ getColsToRemove <- function(ref_value_pos, order){
   removed_cols <- ref_value_pos
   if(order >= 2) removed_cols <- c(removed_cols,ref_value_pos+1)
   if(order >= 3) removed_cols <- c(ref_value_pos-1,removed_cols)
-  if(order > 3) stop("Random walks of order > 3, which you specified for ", name, " are not yet implemented.")
+  if(order >= 4) removed_cols <- c(ref_value_pos-2,removed_cols)
+  if(order > 4) stop("Random walks of order > 4, which you specified for ", name, " are not yet implemented.")
   removed_cols
 }
 
