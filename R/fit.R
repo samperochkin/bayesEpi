@@ -36,7 +36,7 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   list2env(createRandomDesigns(model, U), envir = environment())
 
   # prior parameters
-  prior_lookup <- c("pc_prec", "gamma", "log-gamma")
+  prior_lookup <- c("pc_prec", "log_gamma")
   beta_prec = c(purrr::map(model$fixed, ~ .x$prior$params$prec), purrr::map(model$random, ~ .x$beta_prior$params$prec)) %>% unlist
   theta_prior <- c(purrr::map(model$random, ~ .x$theta_prior$type), z = model$overdispersion$theta_prior$type) %>% unlist
   theta_prior_id = match(theta_prior , prior_lookup)
@@ -75,11 +75,9 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   dll <- "bayesEpi"
   obj <- TMB::MakeADFun(tmb_data, parameters, random = c("beta","gamma","z"), DLL=dll, hessian=T, silent = silent)
   if(silent){
-    capture.output(quad <- aghq::marginal_laplace_tmb(ff = obj,
-                                                      k = model$aghq_input$k,
-                                                      startingvalue =  theta_init,
-                                                      control = model$aghq_input$control))
-
+    (quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
+                                       startingvalue =  theta_init, control = model$aghq_input$control)) %>%
+      capture.output %>% invisible
   }else{
     quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
                                        startingvalue =  theta_init, control = model$aghq_input$control)
