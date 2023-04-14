@@ -76,6 +76,53 @@ getColsToRemove <- function(ref_value_pos, order){
 }
 
 # builds design matrices for random effects (and those for the associated fixed effects)
+createFixedDesigns <- function(model, X){
+
+  fixed <- model$fixed
+
+  # If no fixed effects
+  if(is.null(fixed)) return(list(Xs_exp = list(matrix(nrow=nrow(X), ncol=0))))
+
+
+  fixed_names <- names(fixed)
+  Xs_exp <- list()
+
+  for(name in fixed_names){
+
+    fixed_params <- model$fixed[[name]]$model$params
+
+    if(fixed[[name]]$model$type == "poly"){
+      new_cols <- poly(X[,name] - fixed_params$ref_value, degree = fixed_params$degree, raw = T)
+      names(new_cols) <- paste0(name, "_", 1:fixed_params$degree)
+      model$fixed[[name]]$model$extra$range <- range(X[,name])
+
+    }else if(fixed[[name]]$model$type == "bs"){
+
+
+      knots <- fixed_params$knots
+      degree <- fixed_params$degree
+      ref_value <- fixed_params$ref_value
+
+      if(!(ref_value %in% knots)) stop("ref_value of", name, "cannot be found in the corresponding knots vector. \n")
+      if(length(knots) <= 2) stop("knots for ", name, " is too small")
+      new_cols <- constructBS(x = X[,name], knots = knots, degree = degree, ref_value = ref_value)
+
+    }else{
+      stop("Invalid fixed effect model")
+
+    }
+
+    Xs_exp <- c(Xs_exp, list(new_cols))
+  }
+
+  names(Xs_exp) <- fixed_names
+  X <- do.call("cbind", Xs_exp)
+
+  list(X = X, Xs_exp = Xs_exp, model = model)
+}
+#
+
+# builds design matrices for random effects (and those for the associated fixed effects)
 createRandomDesigns <- function(model, U){
 
   random <- model$random

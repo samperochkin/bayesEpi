@@ -1,3 +1,28 @@
+#' Specify a polynomial fixed effect.
+#'
+#' @param poly_degree Degree of the polynomial.
+#' @return A list specifying a polynomial fixed effect.
+#' @export
+poly_effect <- function(degree = 1,
+                        ref_value = median){
+
+  list(type="poly", params=mget(names(formals()),sys.frame(sys.nframe())))
+}
+
+
+#' Specify a polynomial fixed effect.
+#'
+#' @param poly_degree Degree of the polynomial.
+#' @return A list specifying a polynomial fixed effect.
+#' @export
+bs_effect <- function(knots,
+                      degree = 3,
+                      ref_value = median){
+
+  list(type="bs", params=mget(names(formals()),sys.frame(sys.nframe())))
+}
+
+
 #' Specify a Gaussian random walk distribution for random effect.
 #'
 #' This is used to approximate Gaussian processes random effects.

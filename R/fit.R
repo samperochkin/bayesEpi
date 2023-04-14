@@ -31,6 +31,10 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   X <- as.matrix(data[names(model$fixed)])
   U <- as.matrix(data[names(model$random)])
 
+  # bluids design matrices for fixed effects
+  # creates Xs_exp
+  list2env(createFixedDesigns(model, X), envir = environment())
+
   # bluids design matrices for random effects, polynomial interpolation around reference values,
   # creates As, Xs_int and gamma_dims
   list2env(createRandomDesigns(model, U), envir = environment())
@@ -49,13 +53,15 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
     stop("Random effects must all be of the same type (either 'random walk' or 'integrated Wiener process'). Mixing to be implemented.")
   #############################
 
+  random_effect_id <- match(model$random[[1]]$model$type, c("random walk", "integrated Wiener process"))
+  if(length(random_effect_id) == 0) random_effect_id <- 0L
+
 
   # Model fit ---------------------------------------------------------------
   tmb_data <- list(count = data[case_day, model$response],
                    case_day = case_day, control_days = control_days,
                    X = cbind(X,Reduce("cbind", Xs_int)), A = Reduce("cbind", As),
-                   random_effect_id = match(model$random[[1]]$model$type,
-                                            c("random walk", "integrated Wiener process")),
+                   random_effect_id = random_effect_id,
                    Q_rw = constructQ_rw(model$random), Q_iwp = constructQ_iwp(model$random),
                    gamma_dims = gamma_dims, beta_prec = beta_prec,
                    theta_prior_id = theta_prior_id, theta_hypers = theta_hypers)
@@ -74,13 +80,22 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   # dll <- ifelse(model$random[[1]]$model$type == "random walk", "cc_rw", "cc_iwp")
   dll <- "bayesEpi"
   obj <- TMB::MakeADFun(tmb_data, parameters, random = c("beta","gamma","z"), DLL=dll, hessian=T, silent = silent)
-  if(silent){
-    (quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
-                                       startingvalue =  theta_init, control = model$aghq_input$control)) %>%
-      capture.output %>% invisible
+
+  if((length(model$random) + !is.null(model$overdispersion)) == 0){
+    # inner optimization
+    if(!silent) obj$fn()
+    if(silent) invisible(obj$fn())
+    quad <- NULL
+
   }else{
-    quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
-                                       startingvalue =  theta_init, control = model$aghq_input$control)
+    if(silent){
+      (quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
+                                          startingvalue =  theta_init, control = model$aghq_input$control)) %>%
+        capture.output %>% invisible
+    }else{
+      quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
+                                         startingvalue =  theta_init, control = model$aghq_input$control)
+    }
   }
 
   list(quad = quad, obj = obj, model = model, U = U)

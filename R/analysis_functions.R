@@ -4,9 +4,165 @@
 #' @return A data.frame with values of the beta and gamma coefficients, as well as their credible intervals.
 #' @export
 getResults <- function(fit, probs = .5, M = 1e4, stepsizes = NULL, u_osplines = "knots+stepsize+u"){
-  if(is.null(fit$model$random) || fit$model$random[[1]]$model$type == "random walk") return(getResults_rw(fit, probs, M))
-  if(is.null(fit$model$random) || fit$model$random[[1]]$model$type == "integrated Wiener process") return(getResults_iwp(fit, probs, M, stepsizes, u_osplines))
+  if(is.null(fit$model$random) & is.null(fit$model$overdispersion) & fit$model$fixed[[1]]$model$type == "poly") return(getResults_poly(fit, probs, stepsizes))
+  if(is.null(fit$model$random) & is.null(fit$model$overdispersion) & fit$model$fixed[[1]]$model$type == "bs") return(getResults_bs(fit, probs, stepsizes))
+  if(is.null(fit$model$random) & !is.null(fit$model$overdispersion)) return(getResults_od(fit, probs, M))
+  if(fit$model$random[[1]]$model$type == "random walk") return(getResults_rw(fit, probs, M))
+  if(fit$model$random[[1]]$model$type == "integrated Wiener process") return(getResults_iwp(fit, probs, M, stepsizes, u_osplines))
 }
+
+
+getResults_poly <- function(fit, probs = .5, stepsizes){
+
+  if(is.null(stepsizes)) stepsizes <- 1
+  lpb <- fit$obj$env$last.par.best
+  H <- fit$obj$env$spHess(lpb)
+  S <- solve(H)
+
+  k_cum <- 0
+  df <- NULL
+  for(nam in names(fit$model$fixed)){
+    ran <- fit$model$fixed[[nam]]$model$extra$range
+
+    xx <- seq(ran[1], ran[2], stepsizes)
+    XX <- as.matrix(xx, ncol=1)
+    # XX <- poly(xx - fit$model$fixed[[nam]]$model$params$ref_value,
+    #            degree=fit$model$fixed[[nam]]$model$params$degree)
+    colnames(XX) <- nam
+    XX <- createFixedDesigns(fit$model, XX)$Xs_exp[[nam]]
+
+    yy <- c(XX %*% lpb[k_cum + 1:ncol(XX)])
+    SS <- XX %*% S[k_cum + 1:ncol(XX), k_cum + 1:ncol(XX)] %*% t(XX)
+
+    df0 <- data.frame(parameter_type = as.factor("beta*"),
+                      variable_name = as.factor(nam),
+                      variable_value = xx,
+                      mean = yy,
+                      median = yy,
+                      sd = sqrt(diag(SS)))
+
+    quants <- sapply(probs, qnorm, mean=df0$mean, sd=df0$sd)
+    colnames(quants) <- paste0("perc_", probs*100)
+    rownames(quants) <- NULL
+    df0 <- cbind(df0, quants)
+
+
+    df <- rbind(df, df0)
+    k_cum <- k_cum + ncol(XX)
+  }
+
+  return(df)
+}
+
+
+getResults_bs <- function(fit, probs = .5, stepsizes){
+
+  lpb <- fit$obj$env$last.par.best
+  H <- fit$obj$env$spHess(lpb)
+  S <- solve(H)
+
+  k_cum <- 0
+  df <- NULL
+  for(nam in names(fit$model$fixed)){
+
+    if(is.null(stepsizes)){
+      xx <- fit$model$fixed[[nam]]$model$params$knots
+    }else{
+      kn <- fit$model$fixed[[nam]]$model$params$knots
+      xx <- seq(kn[1], kn[length(kn)], stepsizes)
+    }
+
+    XX <- matrix(xx, ncol=1)
+    colnames(XX) <- nam
+    XX <- createFixedDesigns(fit$model, XX)$Xs_exp[[nam]]
+
+    yy <- c(XX %*% lpb[k_cum + 1:ncol(XX)])
+    SS <- XX %*% S[k_cum + 1:ncol(XX), k_cum + 1:ncol(XX)] %*% t(XX)
+
+    df0 <- data.frame(parameter_type = as.factor("beta*"),
+                      variable_name = as.factor(nam),
+                      variable_value = xx,
+                      mean = yy,
+                      median = yy,
+                      sd = sqrt(diag(SS)))
+
+    quants <- sapply(probs, qnorm, mean=df0$mean, sd=df0$sd)
+    colnames(quants) <- paste0("perc_", probs*100)
+    rownames(quants) <- NULL
+    df0 <- cbind(df0, quants)
+
+
+    df <- rbind(df, df0)
+    k_cum <- k_cum + ncol(XX)
+  }
+
+  return(df)
+}
+
+
+
+getResults_od <- function(fit, probs = .5, M = 1e4){
+
+  # most of what we need
+  quad_samples <- aghq::sample_marginal(fit$quad, M)
+  model <- fit$model
+
+
+  k_cum <- 0
+  df <- NULL
+  for(nam in names(fit$model$fixed)){
+
+    if(fit$model$fixed[[nam]]$model$type == "bs"){
+      xx <- fit$model$fixed[[nam]]$model$params$knots
+    }else if(model$fixed[[nam]]$model$type == "poly"){
+      ran <- model$fixed[[nam]]$model$extra$range
+      xx <- seq(ran[1], ran[2], 1)
+    }
+    XX <- as.matrix(xx, ncol=1)
+    # XX <- poly(xx - fit$model$fixed[[nam]]$model$params$ref_value,
+    #            degree=fit$model$fixed[[nam]]$model$params$degree)
+    colnames(XX) <- nam
+    XX <- createFixedDesigns(model, XX)$Xs_exp[[nam]]
+    yy <- XX %*% quad_samples$samps[k_cum + 1:ncol(XX),]
+
+    df0 <- data.frame(parameter_type = as.factor("beta*"),
+                      variable_name = as.factor(nam),
+                      variable_value = xx,
+                      mean = rowMeans(yy),
+                      median = apply(yy,1,median),
+                      sd = apply(yy,1,sd))
+
+    quants <- t(matrix(c(apply(yy, 1, quantile, probs = probs)), nrow = length(probs)))
+    colnames(quants) <- paste0("perc_", probs*100)
+    rownames(quants) <- NULL
+    df0 <- cbind(df0, quants)
+
+    df <- rbind(df, df0)
+    k_cum <- k_cum + ncol(XX)
+
+  }
+
+  #--- THETAS ---#
+
+  variable_name <- c("z")
+
+  res_frame_theta <- data.frame(parameter_type = as.factor("theta"),
+                                variable_name = as.factor(variable_name),
+                                variable_value = as.numeric(NA),
+                                mean = sapply(quad_samples$thetasamples, mean),
+                                median = sapply(quad_samples$thetasamples, median),
+                                sd = sapply(quad_samples$thetasamples, sd))
+
+  quants <- do.call("rbind", lapply(quad_samples$thetasamples, function(samp) t(quantile(samp, probs = probs))))
+  colnames(quants) <- paste0("perc_", probs*100)
+
+  df <- rbind(df, cbind(res_frame_theta, quants))
+  df <- df[order(df$parameter_type, df$variable_name, df$variable_value),]
+
+  return(df)
+}
+
+
 
 
 getResults_rw <- function(fit, probs = .5, M = 1e4){

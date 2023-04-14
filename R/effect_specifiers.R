@@ -4,8 +4,13 @@
 #' @examples
 #' fixedEffect()
 #' @export
-fixedEffect <- function(prior = gaussian_prior(prec = .01)){
-  list(prior = prior)
+fixedEffect <- function(model){
+  if(model$type == "poly"){
+    prior <- gaussian_prior(prec = rep(.01, model$params$degree))
+  }else if(model$type == "bs"){
+    prior <- gaussian_prior(prec = rep(.01, length(model$params$knots)+model$params$degree-2))
+  }
+  list(model = model, prior = prior)
 }
 
 
