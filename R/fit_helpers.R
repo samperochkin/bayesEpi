@@ -103,8 +103,7 @@ createFixedDesigns <- function(model, X){
       degree <- fixed_params$degree
       ref_value <- fixed_params$ref_value
 
-      if(!(ref_value %in% knots)) stop("ref_value of", name, "cannot be found in the corresponding knots vector. \n")
-      if(length(knots) <= 2) stop("knots for ", name, " is too small")
+      if(!(ref_value %in% knots[[1]] & ref_value %in% knots[[2]])) stop("ref_value of ", name, "cannot be found in the corresponding knots vector. \n")
       new_cols <- constructBS(x = X[,name], knots = knots, degree = degree, ref_value = ref_value)
 
     }else{

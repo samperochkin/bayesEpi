@@ -17,7 +17,7 @@ poly_effect <- function(degree = 1,
 #' @export
 bs_effect <- function(knots,
                       degree = 3,
-                      ref_value = median){
+                      ref_value = knots[[2]][1]){
 
   list(type="bs", params=mget(names(formals()),sys.frame(sys.nframe())))
 }

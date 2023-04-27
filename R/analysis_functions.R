@@ -65,12 +65,16 @@ getResults_bs <- function(fit, probs = .5, stepsizes){
   df <- NULL
   for(nam in names(fit$model$fixed)){
 
-    if(is.null(stepsizes)){
-      xx <- fit$model$fixed[[nam]]$model$params$knots
-    }else{
-      kn <- fit$model$fixed[[nam]]$model$params$knots
-      xx <- seq(kn[1], kn[length(kn)], stepsizes)
-    }
+    kn <- sort(unique(unlist(fit$model$fixed[[nam]]$model$params$knots)))
+    xx <- seq(kn[1], kn[length(kn)], stepsizes)
+
+    # OBSOLETE
+    # if(is.null(stepsizes)){
+    #   xx <- fit$model$fixed[[nam]]$model$params$knots
+    # }else{
+    #   kn <- fit$model$fixed[[nam]]$model$params$knots
+    #   xx <- seq(kn[1], kn[length(kn)], stepsizes)
+    # }
 
     XX <- matrix(xx, ncol=1)
     colnames(XX) <- nam
