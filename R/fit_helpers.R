@@ -238,6 +238,43 @@ getCaseControl <- function(data, model){
       if(any(rowSums(control_days) == 0)) stop("Error in selecting the control days")
 
       list(data = data, case_day = case_day_stratum1, control_days = control_days)
+    }else if(design$scheme == "time stratified" & design$stratum_rule == "supplied"){
+      time_stratum <- data[, c(model$time_index, design$stratum_var)]
+      time_stratum[,model$time_index] <- sapply(data[, model$time_index], as.integer)
+      time_stratum1 = apply(time_stratum , 1 , paste , collapse = "," )
+      case_day_stratum <- time_stratum[data[, model$response] > 0,]
+      case_day_stratum1 = apply(case_day_stratum , 1 , paste , collapse = "," )
+      case_day_id <- match(case_day_stratum1, time_stratum1)
+      t0 <- min(time_stratum[,model$time_index])
+      id <- data[[design$id_var]]
+      # stata (case and control days togeteher)
+      stratum <- split(time_stratum1, id)
+
+      # number of columns of control_days matrix
+      max_len <- max(sapply(stratum, length)) - 1
+
+      # for each case day, enumerates control days (0 means empty)
+      control_days <- lapply(case_day_id, function(c_day_id){
+        con <- setdiff(stratum[[id[c_day_id]]], time_stratum1[c_day_id])
+        con <- c(con, rep(0, max_len-length(con)))
+        con
+      }) %>% Reduce(f="rbind")
+      # filter out case day with no control days
+      keep <- apply(matrix(control_days %in% time_stratum1, nrow=nrow(control_days)),1,any)
+      case_day_stratum1 <- case_day_stratum1[keep]
+      control_days <- control_days[keep,,drop=F]
+
+      # filter out days that are neither case nor control days
+      keep <- time_stratum1 %in% unique(c(case_day_stratum1 ,control_days))
+      time_stratum1 <- time_stratum1[keep]
+      data <- data[keep,]
+
+      case_day_stratum1 <- (1:nrow(data))[match(case_day_stratum1, time_stratum1)]
+      control_days <- matrix((1:nrow(data))[match(control_days, time_stratum1, nomatch = NA)], nrow(control_days))
+      control_days[is.na(control_days)] <- 0
+      if(any(rowSums(control_days) == 0)) stop("Error in selecting the control days")
+      list(data = data, case_day = case_day_stratum1, control_days = control_days)
+
     }
     else stop("The stratum rule ", design$stratum_rule, " is not implemented if a stratum variable is supplied.")
   }
