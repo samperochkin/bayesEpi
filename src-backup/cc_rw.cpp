@@ -10,12 +10,7 @@ Type log_prior(Type theta, int prior_id, vector<Type> hypers)
     return log(0.5 * phi) - phi * exp(-0.5*theta) - 0.5*theta;
 
   } else if (prior_id == 2){
-    // return dgamma(exp(-theta), hypers(0), Type(1)/hypers(1), true);
-    return hypers(0)*log(hypers(1)) - log(2) - lgamma(hypers(0)) - hypers(1) * exp(-0.5*theta) - 0.5*hypers(0)*theta;
-
-  } else if (prior_id == 3){
-    // return dgamma(exp(-theta), hypers(0), Type(1)/hypers(1), true);
-    return - lgamma(hypers(0)) - hypers(1) * exp(theta) + hypers(0) * (theta + log(hypers(1)));
+    return hypers(0) * theta - hypers(1) * exp(theta) + hypers(0) * log(hypers(1)) - lgamma(hypers(0));
 
   } else{
 
@@ -148,6 +143,11 @@ Type objective_function<Type>::operator() ()
   REPORT(log_prior_theta);
   // Rcout << "ltheta : " << log_prior_theta << "\n";
 
+  REPORT(eta);
+  REPORT(beta);
+  REPORT(gamma);
+  REPORT(z);
+  REPORT(theta);
 
   Type nll = -log_likelihood - log_pi_beta - log_pi_gamma - log_pi_z - log_prior_theta;
   return nll;

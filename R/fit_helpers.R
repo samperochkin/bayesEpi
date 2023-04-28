@@ -70,7 +70,8 @@ getColsToRemove <- function(ref_value_pos, order){
   removed_cols <- ref_value_pos
   if(order >= 2) removed_cols <- c(removed_cols,ref_value_pos+1)
   if(order >= 3) removed_cols <- c(ref_value_pos-1,removed_cols)
-  if(order > 3) stop("Random walks of order > 3, which you specified for ", name, " are not yet implemented.")
+  if(order >= 4) removed_cols <- c(ref_value_pos-2,removed_cols)
+  if(order > 4) stop("Random walks of order > 4, which you specified for ", name, " are not yet implemented.")
   removed_cols
 }
 
@@ -417,7 +418,7 @@ constructQ_rw <- function(random){
     Matrix::crossprod(createD(length(ran$model$extra$bin_values), order)[,-removed_cols])
   })
 
-  return(Matrix::bdiag(Qs))
+  as(as(Matrix::bdiag(Qs), "generalMatrix"), "TsparseMatrix")
 }
 
 #' @import OSplines
@@ -446,9 +447,7 @@ getPriorInit <- function(model, init_od_to_none = F){
   theta_init <- sapply(random_priors, function(ran_prior){
     if(ran_prior$type == "pc_prec"){
       return(-2*log(-ran_prior$params$u/log(ran_prior$params$alpha)))
-    }else if(ran_prior$type == "gamma"){
-      return(-2*log(ran_prior$params$shape/ran_prior$params$rate))
-    }else if(ran_prior$type == "log-gamma"){
+    }else if(ran_prior$type == "log_gamma"){
       # return(0)
       return(digamma(ran_prior$params$shape) - log(ran_prior$params$rate))
     }else{
