@@ -1,14 +1,10 @@
 
-
 constructBS <- function(x, knots, degree, ref_value = knots[[2]][1]){
-  # B1 = splines::splineDesign(x, knots = c(0,0,0,0,10,20), ord=degree+1, outer.ok=TRUE)
-  # B2 = splines::splineDesign(x, knots = c(20,30, 40,80, 100, 100, 100, 100), ord=degree+1, outer.ok=TRUE)
-  B1 = splines::splineDesign(x, knots = knots[[1]], ord=degree+1, outer.ok=TRUE)
-  B2 = splines::splineDesign(x, knots = knots[[2]], ord=degree+1, outer.ok=TRUE)
-  B = cbind(B1, B2)
-
-  if(degree > 1) B <- cbind(poly(x - ref_value, degree=degree-1, raw=T), B)
-  B
+  cbind(
+    poly(x - ref_value, degree = degree-1, raw = T),
+    splines::splineDesign(x, knots = knots[[1]], ord=degree+1, outer.ok=TRUE),
+    splines::splineDesign(x, knots = knots[[2]], ord=degree+1, outer.ok=TRUE)
+  )
 }
 
 
