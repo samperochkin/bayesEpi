@@ -4,8 +4,10 @@
 #' @return A data.frame with values of the beta and gamma coefficients, as well as their credible intervals.
 #' @export
 getResults <- function(fit, probs = .5, M = 1e4, stepsizes = NULL, u_osplines = "knots+stepsize+u"){
-  if(is.null(fit$model$random) & is.null(fit$model$overdispersion) & fit$model$fixed[[1]]$model$type == "poly") return(getResults_poly(fit, probs, stepsizes))
-  if(is.null(fit$model$random) & is.null(fit$model$overdispersion) & fit$model$fixed[[1]]$model$type == "bs") return(getResults_bs(fit, probs, stepsizes))
+  if(!is.null(fit$model$fixed)){
+    if(is.null(fit$model$random) & is.null(fit$model$overdispersion) & fit$model$fixed[[1]]$model$type == "poly") return(getResults_poly(fit, probs, stepsizes))
+    if(is.null(fit$model$random) & is.null(fit$model$overdispersion) & fit$model$fixed[[1]]$model$type == "bs") return(getResults_bs(fit, probs, stepsizes))
+  }
   if(is.null(fit$model$random) & !is.null(fit$model$overdispersion)) return(getResults_od(fit, probs, M))
   if(fit$model$random[[1]]$model$type == "random walk") return(getResults_rw(fit, probs, M))
   if(fit$model$random[[1]]$model$type == "integrated Wiener process") return(getResults_iwp(fit, probs, M, stepsizes, u_osplines))
