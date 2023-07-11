@@ -77,55 +77,37 @@ getColsToRemove <- function(ref_value_pos, order){
 
 # builds design matrices for random effects (and those for the associated fixed effects)
 createFixedDesigns <- function(model, X){
-
   fixed <- model$fixed
-
   # If no fixed effects
   if(is.null(fixed)) return(list(Xs_exp = list(matrix(nrow=nrow(X), ncol=0))))
-
-
   fixed_names <- names(fixed)
   Xs_exp <- list()
-
   for(name in fixed_names){
-
     fixed_params <- model$fixed[[name]]$model$params
-
     if(fixed[[name]]$model$type == "poly"){
       new_cols <- poly(X[,name] - fixed_params$ref_value, degree = fixed_params$degree, raw = T)
       names(new_cols) <- paste0(name, "_", 1:fixed_params$degree)
       model$fixed[[name]]$model$extra$range <- range(X[,name])
-
     }else if(fixed[[name]]$model$type == "bs"){
-
-
       knots <- fixed_params$knots
       degree <- fixed_params$degree
       ref_value <- fixed_params$ref_value
-
       if(!(ref_value %in% knots[[1]] & ref_value %in% knots[[2]])) stop("ref_value of ", name, "cannot be found in the corresponding knots vector. \n")
       new_cols <- constructBS(x = X[,name], knots = knots, degree = degree, ref_value = ref_value)
-
     }else{
       stop("Invalid fixed effect model")
-
     }
-
     Xs_exp <- c(Xs_exp, list(new_cols))
   }
-
   names(Xs_exp) <- fixed_names
   X <- do.call("cbind", Xs_exp)
-
   list(X = X, Xs_exp = Xs_exp, model = model)
 }
 #
 
 # builds design matrices for random effects (and those for the associated fixed effects)
 createRandomDesigns <- function(model, U){
-
   random <- model$random
-
   # If no random effects
   if(is.null(random)){
     return(list(As = list(as(matrix(nrow=nrow(U), ncol=0), "dgTMatrix")),
@@ -133,51 +115,38 @@ createRandomDesigns <- function(model, U){
                 gamma_dims = integer(0),
                 model = model))
   }
-
-
   random_names <- names(random)
   As <- list()
-
   for(name in random_names){
-
     random_params <- model$random[[name]]$model$params
-
     if(random[[name]]$model$type == "random walk"){
       if(!("binwidth" %in% names(random[[name]]$model$params))) stop("binwidth is not specified for random effect ", name,".")
-
       new_u <- round(U[,name]/random_params$binwidth)
       bin_values <- min(new_u):max(new_u) * random_params$binwidth
       fac <- factor(new_u, levels = seq(min(new_u), max(new_u),1), labels = paste0(name,"__",bin_values))
       A <- Matrix::t(Matrix::fac2sparse(fac, drop.unused.levels = F))
-
       # Set reference value by setting corresponding column of A (and neighbours) to zero.
       ref_value_pos <- which.min(abs(random_params$ref_value - bin_values))
       rounded_ref_value <- bin_values[ref_value_pos]
       removed_cols <- getColsToRemove(ref_value_pos, random_params$order)
       As[[length(As)+1]] <- A[, -removed_cols]
-
       # for later
       model$random[[name]]$model$extra$bin_values <- bin_values
       model$random[[name]]$model$extra$rounded_ref_value <- rounded_ref_value
       model$random[[name]]$model$extra$ref_value_pos <- ref_value_pos
       model$random[[name]]$model$extra$removed_cols <- removed_cols
-
       if(random[[name]]$model$params$poly_degree > 0){
         model$random[[name]]$model$extra$bin_values_int <- poly(bin_values - rounded_ref_value,
                                                                 degree = model$random[[name]]$model$params$poly_degree,
                                                                 raw = TRUE)
       }
-
     }else if(random[[name]]$model$type == "integrated Wiener process"){
-
       knots <- random_params$knots
       ref_value <- random_params$ref_value
       ran <- model$random[[name]]$model$extra$range <- range(U[,name])
-
       if(!(ref_value %in% knots)) stop("ref_value of", name, "cannot be found in the corresponding knots vector. \n")
       if(!(ran[1] >= knots[1] & ran[2] <= knots[length(knots)])) warning("knots for ", name, " do not span its range. Continuing anyway. \n")
       if(length(knots) <= 2) stop("knots for ", name, " is too small")
-
       ref_pos <- which(knots == ref_value)
       A <- NULL
       if(ref_pos != 1) A <- cbind(A, as(local_poly(knots = rev(ref_value - knots[1:ref_pos]),
@@ -188,15 +157,34 @@ createRandomDesigns <- function(model, U){
                                                                p = random_params$order), "sparseMatrix"))
       As[[length(As)+1]] <- A
     }
-
   }
-
   names(As) <- random_names
   Xs_int <- interpolationFixedEffects(model$random, U)
   gamma_dims <- sapply(As, ncol)
   gamma_dims <- gamma_dims[gamma_dims != 0]
-
   list(As = As, gamma_dims = gamma_dims, Xs_int = Xs_int, model = model)
+}
+#
+
+
+# builds design matrices for overdispersion effects
+createODDesigns <- function(model, ODcolumns){
+  overdispersion <- !is.null(model$overdispersion)
+  stratum_var <- model$design$stratum_var
+    # If no overdispersion or if no stratum variable just return Az as identity matrix
+  if( (!overdispersion) || is.null(stratum_var)){
+    return(list(Az = list(as(diag(nrow(ODcolumns)), "dgTMatrix"))))
+  }
+  #Otherwise, we want a (number of unique dates) x nrow(X)  matrix where the element(i,j) is 1 if entry j happened on day i and 0 otherwise
+  #TODO: Do this more efficiently
+  temp = ODcolumns
+  #temp$time_index = c(1:(dim(temp)[1]))
+  temp$stratum_var = c(1:(dim(temp)[1]))
+  temp2 = table(temp)
+  #rownames(temp2) = ODcolumns[,1]
+  colnames(temp2) = ODcolumns[,2]
+  Az = as(t(matrix(temp2,nrow = dim(temp2)[1])), "dgTMatrix")
+  return(list(Az = Az,  model = model))
 }
 #
 

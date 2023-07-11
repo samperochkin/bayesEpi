@@ -28,16 +28,23 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
 
   # overdispersion and design matrices
   overdispersion <- !is.null(model$overdispersion)
+  #ODcolumns <- as.matrix(data[c(model$time_index,model$design$stratum_var)])
+  ODcolumns <- data[c(model$time_index,model$design$stratum_var)]
+  colnames(ODcolumns) <- c("time_index", "stratum_var")
   X <- as.matrix(data[names(model$fixed)])
   U <- as.matrix(data[names(model$random)])
 
-  # bluids design matrices for fixed effects
+  # builds design matrices for fixed effects
   # creates Xs_exp
   list2env(createFixedDesigns(model, X), envir = environment())
 
-  # bluids design matrices for random effects, polynomial interpolation around reference values,
+  # builds design matrices for random effects, polynomial interpolation around reference values,
   # creates As, Xs_int and gamma_dims
   list2env(createRandomDesigns(model, U), envir = environment())
+
+  # builds design matrices for overdispersion effects
+  # creates Az
+  list2env(createODDesigns(model, ODcolumns), envir = environment())
 
   # prior parameters
   prior_lookup <- c("pc_prec", "log_gamma")
@@ -69,7 +76,8 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   theta_init <- getPriorInit(model)
   parameters <- list(beta = rep(0,ncol(X)+sum(sapply(Xs_int, ncol))),
                      gamma = rep(0, sum(sapply(As, ncol))),
-                     z = rep(0,nrow(X)*overdispersion),
+                     #z = rep(0,nrow(X)*overdispersion),
+                     z = rep(0,ncol(Az)*overdispersion),
                      theta = theta_init)
 
   for(param_name in intersect(names(params_init), names(parameters))){
