@@ -168,23 +168,26 @@ createRandomDesigns <- function(model, U){
 
 
 # builds design matrices for overdispersion effects
-createODDesigns <- function(model, ODcolumns){
-  overdispersion <- !is.null(model$overdispersion)
-  stratum_var <- model$design$stratum_var
-    # If no overdispersion or if no stratum variable just return Az as identity matrix
-  if( (!overdispersion) || is.null(stratum_var)){
-    return(list(Az = list(as(diag(nrow(ODcolumns)), "dgTMatrix"))))
+createODDesign <- function(model, data){
+
+  n <- nrow(data)
+  overdispersion <- model$overdispersion
+  stratum_vars <- model$design$stratum_vars
+
+  if(is.null(overdispersion) || is.null(stratum_vars)){
+    return(
+      list(A_z = as(as(as(diag(n), "dMatrix"), "generalMatrix"), "TsparseMatrix"))
+    )
   }
+
   #Otherwise, we want a (number of unique dates) x nrow(X)  matrix where the element(i,j) is 1 if entry j happened on day i and 0 otherwise
-  #TODO: Do this more efficiently
-  temp = ODcolumns
-  #temp$time_index = c(1:(dim(temp)[1]))
-  temp$stratum_var = c(1:(dim(temp)[1]))
-  temp2 = table(temp)
-  #rownames(temp2) = ODcolumns[,1]
-  colnames(temp2) = ODcolumns[,2]
-  Az = as(t(matrix(temp2,nrow = dim(temp2)[1])), "dgTMatrix")
-  return(list(Az = Az,  model = model))
+  clus <- split(1:nrow(data), apply(data[, stratum_vars, drop=F], 1, paste0, collapse = "___"))
+  lens <- sapply(clus, length)
+  A_z <- Matrix::sparseMatrix(i = unlist(clus),
+                              j = unlist(lapply(seq_along(lens), \(k) rep(k, lens[k]))),
+                              dims = c(n,length(clus)), repr = "T")
+  # need to force dgT?
+  list(A_z = as(A_z, "dgTMatrix"))
 }
 #
 

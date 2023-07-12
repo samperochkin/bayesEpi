@@ -44,7 +44,7 @@ ccDesign <- function(...){
                  n_control = 2,
                  lag = 7,
                  stratum_rule = NULL,
-                 stratum_var = NULL)
+                 stratum_vars = "time_index")
   design[names(params)] <- params
   if(design$scheme == "time stratified" & is.null(design$stratum_rule)) design$stratum_rule <- "sequential"
   return(design)

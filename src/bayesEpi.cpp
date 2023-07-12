@@ -31,6 +31,7 @@ Type objective_function<Type>::operator() ()
 
   DATA_MATRIX(X);
   DATA_SPARSE_MATRIX(A);
+  DATA_SPARSE_MATRIX(A_z);
 
   DATA_INTEGER(random_effect_id);
   DATA_SPARSE_MATRIX(Q_rw);
@@ -64,7 +65,7 @@ Type objective_function<Type>::operator() ()
 
   if(beta_dim != 0) eta += X*beta;
   if(gamma_dim != 0) eta += A*gamma;
-  if(z_dim != 0) eta += z;
+  if(z_dim != 0) eta += A_z*z;
 
 
   /*--------------------------------------------------------------------------*/

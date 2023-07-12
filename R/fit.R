@@ -28,9 +28,6 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
 
   # overdispersion and design matrices
   overdispersion <- !is.null(model$overdispersion)
-  #ODcolumns <- as.matrix(data[c(model$time_index,model$design$stratum_var)])
-  ODcolumns <- data[c(model$time_index,model$design$stratum_var)]
-  colnames(ODcolumns) <- c("time_index", "stratum_var")
   X <- as.matrix(data[names(model$fixed)])
   U <- as.matrix(data[names(model$random)])
 
@@ -43,8 +40,9 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   list2env(createRandomDesigns(model, U), envir = environment())
 
   # builds design matrices for overdispersion effects
-  # creates Az
-  list2env(createODDesigns(model, ODcolumns), envir = environment())
+  # creates A_z
+  list2env(createODDesign(model, data), envir = environment())
+
 
   # prior parameters
   prior_lookup <- c("pc_prec", "log_gamma")
@@ -67,7 +65,8 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   # Model fit ---------------------------------------------------------------
   tmb_data <- list(count = data[case_day, model$response],
                    case_day = case_day, control_days = control_days,
-                   X = cbind(X,Reduce("cbind", Xs_int)), A = Reduce("cbind", As),
+                   X = cbind(X,Reduce("cbind", Xs_int)),
+                   A = Reduce("cbind", As), A_z = A_z,
                    random_effect_id = random_effect_id,
                    Q_rw = constructQ_rw(model$random), Q_iwp = constructQ_iwp(model$random),
                    gamma_dims = gamma_dims, beta_prec = beta_prec,
@@ -76,8 +75,7 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   theta_init <- getPriorInit(model)
   parameters <- list(beta = rep(0,ncol(X)+sum(sapply(Xs_int, ncol))),
                      gamma = rep(0, sum(sapply(As, ncol))),
-                     #z = rep(0,nrow(X)*overdispersion),
-                     z = rep(0,ncol(Az)*overdispersion),
+                     z = rep(0,ncol(A_z)*overdispersion),
                      theta = theta_init)
 
   for(param_name in intersect(names(params_init), names(parameters))){
