@@ -62,6 +62,13 @@ setRefValues <- function(data, model){
     if(is.function(ref_value)) model$random[[name]]$model$params$ref_value <- ref_value(data[,name])
   }
 
+  for(name in names(model$fixed)){
+    if(model$fixed[[name]]$model$type == "poly"){
+      ref_value <- model$fixed[[name]]$model$params$ref_value
+      if(is.function(ref_value)) model$fixed[[name]]$model$params$ref_value <- ref_value(data[,name])
+    }
+  }
+
   list(model = model)
 }
 

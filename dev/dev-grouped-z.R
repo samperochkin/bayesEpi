@@ -25,17 +25,17 @@ data <- data.frame(date = rep(as.Date(1:(n/5)), each=5), x = x, xx = xx, y = y)
 
 model <- ccModel(response = "y",
                  time_index = "date",
-                 fixed = NULL,
-                 # fixed = list("x" = fixedEffect(poly_effect())),
+                 # fixed = NULL,
+                 fixed = list("x" = fixedEffect(poly_effect())),
                  random = list("xx" = randomEffect(rw_effect(), pc_prec_prior())),
                  overdispersion = randomEffect(gaussian_effect(), pc_prec_prior()),
                  design = ccDesign(scheme = "time stratified", stratum_vars = "date"),
                  aghq_input = aghqInput())
 
-debug(fitModel.ccModel)
+# debug(fitModel.ccModel)
 # debug(createODDesign)
 fit <- fitModel(model, data)
-s# undebug(fitModel.ccModel)
+# undebug(fitModel.ccModel)
 
 res <- aghq::sample_marginal(fit$quad, M=1000)
 sum(rownames(res$samps) == "z")
