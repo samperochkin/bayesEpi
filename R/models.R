@@ -15,7 +15,10 @@
 #'                  overdispersion = randomEffect(gaussian_effect(), pc_prec_prior(u = 10, alpha = .9)),
 #'                  design = ccDesign(), control_aghq = controlAGHQ())
 #' @export
-ccModel <- function(response, time_index, fixed, random, overdispersion, od_stratum_vars, design, aghq_input){
+ccModel <- function(response, time_index,
+                    fixed = NULL, random = NULL,
+                    overdispersion = NULL, od_stratum_vars = NULL,
+                    design = ccDesign(), aghq_input = aghqInput()){
   model <- mget(names(formals()),sys.frame(sys.nframe()))
   attr(model, "class") <- "ccModel"
   model
