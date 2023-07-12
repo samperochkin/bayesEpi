@@ -179,16 +179,16 @@ createODDesign <- function(model, data){
 
   n <- nrow(data)
   overdispersion <- model$overdispersion
-  stratum_vars <- model$design$stratum_vars
+  od_stratum_vars <- model$od_stratum_vars
 
-  if(is.null(overdispersion) || is.null(stratum_vars)){
+  if(is.null(overdispersion) || is.null(od_stratum_vars)){
     return(
       list(A_z = as(as(as(diag(n), "dMatrix"), "generalMatrix"), "TsparseMatrix"))
     )
   }
 
   #Otherwise, we want a (number of unique dates) x nrow(X)  matrix where the element(i,j) is 1 if entry j happened on day i and 0 otherwise
-  clus <- split(1:nrow(data), apply(data[, stratum_vars, drop=F], 1, paste0, collapse = "___"))
+  clus <- split(1:nrow(data), apply(data[, od_stratum_vars, drop=F], 1, paste0, collapse = "___"))
   lens <- sapply(clus, length)
   A_z <- Matrix::sparseMatrix(i = unlist(clus),
                               j = unlist(lapply(seq_along(lens), \(k) rep(k, lens[k]))),

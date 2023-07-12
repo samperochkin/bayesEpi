@@ -29,10 +29,11 @@ model <- ccModel(response = "y",
                  fixed = list("x" = fixedEffect(poly_effect())),
                  random = list("xx" = randomEffect(rw_effect(), pc_prec_prior())),
                  overdispersion = randomEffect(gaussian_effect(), pc_prec_prior()),
-                 design = ccDesign(scheme = "time stratified", stratum_vars = "date"),
+                 od_stratum_vars = "date",
+                 design = ccDesign(scheme = "time stratified"),
                  aghq_input = aghqInput())
 
-# debug(fitModel.ccModel)
+# undebug(fitModel.ccModel)
 # debug(createODDesign)
 fit <- fitModel(model, data)
 # undebug(fitModel.ccModel)
