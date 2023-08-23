@@ -18,7 +18,7 @@
 ccModel <- function(response, time_index,
                     fixed = NULL, random = NULL,
                     overdispersion = NULL, od_stratum_vars = NULL,
-                    design = ccDesign(), aghq_input = aghqInput()){
+                    design = ccDesign(), aghq_input = aghqInput(), od_stratum_vars = NULL){
   model <- mget(names(formals()),sys.frame(sys.nframe()))
   attr(model, "class") <- "ccModel"
   model
