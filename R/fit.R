@@ -98,5 +98,5 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
     }
   }
 
-  list(quad = quad, obj = obj, model = model, U = U)
+  list(quad = quad, obj = obj, model = model, U = U, time = data[, model$time_index])
 }
