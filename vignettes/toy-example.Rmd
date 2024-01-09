@@ -16,7 +16,9 @@ knitr::opts_chunk$set(
 
 ```{r setup, results = F}
 library(bayesEpi)
-# devtools::load_all("~/Git/packages/bayesEpi")
+library(ggplot2)
+# devtools::load_all("~/Git/bayesEpi")
+# devtools::install_github("https://github.com/Smoothing-IWP/OSplines/tree/OSpline-Original") # If wanna use o-splines...
 ```
 
 This vignette shows hot to use the `fitModel` function to fit a case crossover model.
@@ -24,16 +26,22 @@ This vignette shows hot to use the `fitModel` function to fit a case crossover m
 ## Toy data
 Consider the following dummy data:
 ```{r data}
-n <- 1000
+set.seed(666)
+n <- 1500
 toyData <- data.frame(time = seq(n))
 
-# explanatory variables and hazard
+# explanatory variables
 toyData$hum <- pmin(pmax((sin(toyData$time/365 * 2*pi) + 1)/2 + rnorm(n,0,.75),0),1)
 toyData$o3 <- pmax((sin(toyData$time/365 * 2*pi) + 1)*25 + rnorm(n,0,10),0)
-loghazard <- abs(1.25-toyData$hum)*1 + (toyData$o3/25)^2
+
+# overdispersion and hazard
+theta <- 6
+f_hum <- function(x) abs(1.25-x)
+f_o3 <- function(x) sqrt(x/100)
+f_time <- function(x) .5 * sin(2*pi * x/365.25) + log(1+x/n) 
 
 # response variable
-toyData$count <- rpois(n,exp(loghazard))
+toyData$count <- rpois(n,exp(f_hum(toyData$hum) + f_o3(toyData$o3) + f_time(toyData$time) + rnorm(n, 0, exp(-theta/2))))
 
 head(toyData)
 ```
@@ -42,31 +50,93 @@ Here, the names `hum` and `o3` refer to humidity level and ozone concentration, 
 ## Model specification
 To fit a case crossover model with `count` as response variable, `time` as the time index, `hum` as fixed effect and `o3` as random effect, we first specify the model via
 ```{r model}
-model <- bayesEpi::ccModel(response = "count",
-                           time_index = "time",
-                           fixed = list("hum" = fixedEffect(gaussian_prior())),
-                           random = list("o3" = randomEffect(rw_effect(), pc_prec_prior())),
-                           overdispersion = randomEffect(gaussian_effect(), pc_prec_prior()),
-                           design = ccDesign(),
+
+# fixed effect model via splines (somewhat tricky to set up the knots, two sets for each side of the reference values)
+# model <- bayesEpi::ccModel(response = "count", time_index = "time",
+#                         fixed = list(
+#                            "hum" = fixedEffect(bayesEpi:::poly_effect(ref_value = median(toyData$hum))),
+#                            "o3" = fixedEffect(bayesEpi:::bs_effect(knots = list(c(0,0,15,30,30), c(30,30,45,60,76,76)),
+#                                                                    degree = 3, ref_value = 30))),
+#                          random = NULL,
+#                          design = ccDesign(scheme = "time stratified", n_control=3),
+#                          overdispersion = randomEffect(gaussian_effect(), log_gamma_prior(shape=.5, rate=1e-7)),
+#                          aghq_input = aghqInput())
+
+# rw2 model
+model <- bayesEpi::ccModel(response = "count", time_index = "time",
+                           fixed = list("hum" = fixedEffect(bayesEpi:::poly_effect(ref_value = median(toyData$hum)))),
+                           random = list("o3" = randomEffect(rw_effect(ref_value = 25, order=2,  binwidth=1), 
+                                                             pc_prec_prior(alpha=.5, u=.05))),
+                           design = ccDesign(scheme = "time stratified", n_control=3, lag=1),
+                           overdispersion = randomEffect(gaussian_effect(), pc_prec_prior(alpha=.5, u=.03)),
                            aghq_input = aghqInput())
+
 ```
 More fixed or random effects could be added, e.g., with
 `random = list("o3" = randomEffect(rw_effect(), pc_prep_prior()), "other_random_effect" = randomEffect(rw_effect(), pc_prep_prior()))`.
-Note that only the gaussian prior is implemented for fixed effects, and that only the random walk model (`rw_effect`) is implemented for random effects.
+
 
 ## Fit
 We can then fit the model with the function `fitModel`, which usually prints a bunch of stuff (somewhat uninformative if you know nothing about the `aghq` package).
 ```{r fit, results = F}
-fit <- fitModel(model, toyData)
+fit <- fitModel(model, toyData, silent = T)
 ```
 
 ## Analysis of the results
-Several functions are provided for analyzing the results returned by `fitModel`.
-Median prediction as well as confidence intervals can be obtained via the function `getResults`.
-```{r results, results = F}
-# res <- getResults(fit, probs = c(.05,.5,.95))
+Some functions are provided for analyzing the results returned by `fitModel`.
+Median prediction as well as credible intervals can be obtained via the function `getResults`.
+```{r getResults, results = T}
+# values at which to evaluate spline, if used
+# values <- list("o3" = seq(0,75,1))
+values <- NULL # will use bins for rw2
+
+res <- getResults(fit, values = values, 
+                  M = 5000, # M is number of samples to draw (for inference)
+                  probs_pw = c(.9), # nominal levels for pointwise CI
+                  probs_g = c(.9)) # nominal levels for global envelopes
+res[res$parameter_type == "theta",]
 ```
 
+
+You can plot them as follows
 ```{r plots, results = F}
-# TO-DO
+# subset results (and construct true effect data frame, for comparison)
+# if using splines model
+# res0 <- res[res$parameter_type == "beta*" & res$variable_name == "o3",]
+# ref_val <- fit$model$fixed$o3$model$params$ref_value
+
+# if using rw2 model
+res0 <- res[res$parameter_type == "gamma*" & res$variable_name == "o3",]
+values <- list("o3" = fit$model$random$o3$model$extra$bin_values)
+ref_val <- fit$model$random$o3$model$extra$rounded_ref_value
+
+true_effect <- data.frame(
+  variable_name = "o3",
+  variable_value = values$o3,
+  median = f_o3(values$o3) - f_o3(ref_val)
+)
+
+
+ggplot(res0, aes(x=variable_value, y=median)) +
+  theme_bw() +
+  xlab("exposure (o3)") + ylab("log-relative risk") +
+  geom_line(data=true_effect, linetype=2) +
+  geom_vline(xintercept = ref_val, linetype = 3) +
+  geom_line() +
+  geom_ribbon(aes(ymin=ge_lo_90, ymax=ge_hi_90), alpha = .25)
+
+```
+
+We can also take a look at the overdispersion coefficients:
+```{r, overdispersion plot, results = F}
+
+res0 <- getResults_z(fit, probs_pw = .9, probs_g = NULL, M = 5000)
+
+ggplot(res0, aes(x=variable_value, y=median)) +
+  theme_bw() +
+  xlab("overdispersion coef. (z)") + ylab("log-relative risk") +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_point(size=.35) +
+  geom_ribbon(aes(ymin=perc_5, ymax=perc_95), alpha = .25)
+
 ```

@@ -1,5 +1,5 @@
 Package: bayesEpi
-Title: Bayesian implementation of Poisson time series and case-crossover models using TMB and aghq. 
+Title: Bayesian implementation of case-crossover models using TMB and aghq. 
 Version: 0.01
 Authors@R: 
     person(given = "Samuel",
@@ -7,7 +7,7 @@ Authors@R:
            role = c("aut", "cre"),
            email = "samuel.perreault@utoronto.ca",
            comment = c(ORCID = "YOUR-ORCID-ID"))
-Description: What the package does (one paragraph).
+Description: See paper Case-crossover designs and overdispersion with application to air pollution epidemiology (2023+).
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
