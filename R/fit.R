@@ -90,8 +90,8 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   }else{
     if(silent){
       (quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
-                                          startingvalue =  theta_init, control = model$aghq_input$control)) %>%
-        capture.output %>% invisible
+                                          startingvalue =  theta_init, control = model$aghq_input$control)) |>
+        utils::capture.output() |> invisible()
     }else{
       quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
                                          startingvalue =  theta_init, control = model$aghq_input$control)

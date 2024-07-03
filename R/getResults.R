@@ -207,7 +207,7 @@ getResults_general <- function(fit, probs_pw, probs_g, M, values){
                       variable_value = uu,
                       mean = rowMeans(yy),
                       median = apply(yy,1,stats::median),
-                      sd = apply(yy,1,sd))
+                      sd = apply(yy,1,stats::sd))
 
     # include pointwise coverage probs and global envelop
     if(!is.null(probs_pw)) df0 <- cbind(df0, computePCI_general(yy, probs_pw))
