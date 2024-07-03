@@ -23,16 +23,14 @@ Imports:
     Formula,
     Matrix,
     magrittr,
-    MatrixModels,
     TMB,
-    RcppEigen,
-    Rcpp,
     Rdpack,
     purrr,
     GET,
-    OSplines
-RdMacros:
-    Rdpack
+    OSplines,
+    mvtnorm,
+    Rdpack,
+    stats, methods
 VignetteBuilder: knitr
 LinkingTo: 
     TMB,

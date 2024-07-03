@@ -128,7 +128,7 @@ createRandomDesigns <- function(model, U){
 
   # If no random effects
   if(is.null(random)){
-    return(list(As = list(as(matrix(nrow=nrow(U), ncol=0), "dgTMatrix")),
+    return(list(As = list(methods::as(matrix(nrow=nrow(U), ncol=0), "dgTMatrix")),
                 Xs_int = list(matrix(nrow=nrow(U), ncol=0)),
                 gamma_dims = integer(0),
                 model = model))
@@ -180,10 +180,10 @@ createRandomDesigns <- function(model, U){
 
       ref_pos <- which(knots == ref_value)
       A <- NULL
-      if(ref_pos != 1) A <- cbind(A, as(local_poly(knots = rev(ref_value - knots[1:ref_pos]),
+      if(ref_pos != 1) A <- cbind(A, methods::as(local_poly(knots = rev(ref_value - knots[1:ref_pos]),
                                                    refined_x = ref_value - U[,name],
                                                    p = random_params$order), "sparseMatrix"))
-      if(ref_pos != length(knots)) A <- cbind(A, as(local_poly(knots = knots[ref_pos:length(knots)] - ref_value,
+      if(ref_pos != length(knots)) A <- cbind(A, methods::as(local_poly(knots = knots[ref_pos:length(knots)] - ref_value,
                                                                refined_x = U[,name] - ref_value,
                                                                p = random_params$order), "sparseMatrix"))
       As[[length(As)+1]] <- A
@@ -410,12 +410,12 @@ selectFixedOD <- function(data, model, case_day, control_days){
 
 constructQ_rw <- function(random){
 
-  if(is.null(random)) return(as(matrix(nrow=0,ncol=0), "dgTMatrix"))
+  if(is.null(random)) return(methods::as(matrix(nrow=0,ncol=0), "dgTMatrix"))
   ids <- which(sapply(random, function(ran) ran$model$type == "random walk"))
-  if(length(ids) == 0) return(as(matrix(nrow=0,ncol=0), "dgTMatrix"))
+  if(length(ids) == 0) return(methods::as(matrix(nrow=0,ncol=0), "dgTMatrix"))
 
   createD <-function(d,p){
-    if(p==0) return(Diagonal(d,1))
+    if(p==0) return(Matrix::Diagonal(d,1))
     D <- Matrix::bandSparse(d,k =c(0,1),diagonals =list(rep(-1,d),rep(1,d-1)))[-d, ]
     if(p==1) return(D)
     else return(createD(d,p-1)[-1,-1] %*% D)
@@ -427,7 +427,7 @@ constructQ_rw <- function(random){
     Matrix::crossprod(createD(length(ran$model$extra$bin_values), order)[,-removed_cols])
   })
 
-  as(as(Matrix::bdiag(Qs), "generalMatrix"), "TsparseMatrix")
+  methods::as(methods::as(Matrix::bdiag(Qs), "generalMatrix"), "TsparseMatrix")
 }
 
 #' @import OSplines

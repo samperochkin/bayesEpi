@@ -30,7 +30,7 @@ computePCI_fixed_only <- function(mean, sd, probs_pw){
   probs_pw <- sort(1-probs_pw)/2
   probs_pw <- c(probs_pw, 1-rev(probs_pw))
 
-  quants <- sapply(probs_pw, qnorm, mean=mean, sd=sd)
+  quants <- sapply(probs_pw, stats::qnorm, mean=mean, sd=sd)
   colnames(quants) <- paste0("perc_", probs_pw*100)
   rownames(quants) <- NULL
   quants
@@ -55,7 +55,7 @@ computePCI_general <- function(yy, probs_pw){
   probs_pw <- sort(1-probs_pw)/2
   probs_pw <- c(probs_pw, 1-rev(probs_pw))
 
-  quants <- t(matrix(c(apply(yy, 1, quantile, probs = probs_pw)), nrow = length(probs_pw)))
+  quants <- t(matrix(c(apply(yy, 1, stats::quantile, probs = probs_pw)), nrow = length(probs_pw)))
   colnames(quants) <- paste0("perc_", probs_pw*100)
   rownames(quants) <- NULL
   quants
@@ -166,7 +166,7 @@ getResults_general <- function(fit, probs_pw, probs_g, M, values){
                       variable_name = as.factor(nam),
                       variable_value = xx,
                       mean = rowMeans(yy),
-                      median = apply(yy,1,median),
+                      median = apply(yy,1,stats::median),
                       sd = apply(yy,1,sd))
 
     # include pointwise coverage probs and global envelop
@@ -206,7 +206,7 @@ getResults_general <- function(fit, probs_pw, probs_g, M, values){
                       variable_name = as.factor(nam),
                       variable_value = uu,
                       mean = rowMeans(yy),
-                      median = apply(yy,1,median),
+                      median = apply(yy,1,stats::median),
                       sd = apply(yy,1,sd))
 
     # include pointwise coverage probs and global envelop
@@ -230,9 +230,9 @@ getResults_general <- function(fit, probs_pw, probs_g, M, values){
     df0 <- data.frame(parameter_type = as.factor("theta"),
                       variable_name = as.factor(variable_name),
                       variable_value = as.numeric(NA),
-                      mean = sapply(quad_samples$thetasamples, mean),
-                      median = sapply(quad_samples$thetasamples, median),
-                      sd = sapply(quad_samples$thetasamples, sd))
+                      mean = sapply(quad_samples$thetasamples, stats::mean),
+                      median = sapply(quad_samples$thetasamples, stats::median),
+                      sd = sapply(quad_samples$thetasamples, stats::sd))
 
     # include pointwise coverage probs and global envelop
     if(!is.null(probs_pw)) df0 <- cbind(df0, lapply(quad_samples$thetasamples, computePCI_general, probs_pw=probs_pw) |> do.call(what = "rbind"))
@@ -262,8 +262,8 @@ getResults_z <- function(fit, probs_pw, probs_g, M, values){
                     variable_name = fit$model$time_index,
                     variable_value = fit$time,
                     mean = rowMeans(samps),
-                    median = apply(samps,1,median),
-                    sd = apply(samps,1,sd))
+                    median = apply(samps,1,stats::median),
+                    sd = apply(samps,1,stats::sd))
 
     # include pointwise coverage probs and global envelop
     if(!is.null(probs_pw)) df0 <- cbind(df0, computePCI_general(samps, probs_pw))
