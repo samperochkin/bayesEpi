@@ -13,7 +13,7 @@ getResults(
 )
 }
 \arguments{
-\item{fit}{A fitted ccModel (obtained via \code{fitModel(model)}).}
+\item{fit}{A fitted ccModel (obtained via `fitModel(model)`).}
 
 \item{probs_pw}{Nominal levels for computing pointwise credible intervals for fixed and random effects (and overdispersion terms).}
 

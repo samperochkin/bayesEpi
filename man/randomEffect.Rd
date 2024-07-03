@@ -7,12 +7,12 @@
 randomEffect(model, theta_prior, beta_prior)
 }
 \arguments{
-\item{model}{A model for the random effect: \code{rw_effect()} or \code{iwp_effect()}.}
+\item{model}{A model for the random effect: `rw_effect()` or `iwp_effect()`.}
 
 \item{theta_prior}{Prior distribution for the parameters theta of the random effect model.}
 
 \item{beta_prior}{Prior distribution for the fixed effects created as a by-product. Only the Gaussian prior is implemented.
-The number of beta_prior parameters must match the number of coefficients created by the chosen model, i.e., \code{order-1}.
+The number of beta_prior parameters must match the number of coefficients created by the chosen model, i.e., `order-1`.
 For example, a random walk of order 3 creates (by default) 2 fixed effects. In most cases, this argument should be left unspecified.}
 }
 \description{

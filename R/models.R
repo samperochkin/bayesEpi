@@ -13,7 +13,7 @@
 #'                  random = list("o3_lag" = randomEffect(rw_effect(), pc_prec_prior()),
 #'                                "temp_lag" = randomEffect(rw_effect(), pc_prec_prior())),
 #'                  overdispersion = randomEffect(gaussian_effect(), pc_prec_prior(u = 10, alpha = .9)),
-#'                  design = ccDesign(), control_aghq = controlAGHQ())
+#'                  design = ccDesign(), aghq_input = controlAGHQ())
 #' @export
 ccModel <- function(response, time_index, fixed, random, overdispersion, design, aghq_input){
   model <- mget(names(formals()),sys.frame(sys.nframe()))

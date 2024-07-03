@@ -23,7 +23,7 @@ This is used to approximate Gaussian processes random effects.
 When a Gaussian random walk is specified, the range of observed values is discretized into
 bins and the random effect is modeled as a random walk on these. For technical reasons, the
 bin that contain the reference value is removed, as well as some of its neighbors, so that
-the number of bins removed equals \code{order}. By default, fixed effects (x - x_ref)^i, i=1,...,\code{order}-1
+the number of bins removed equals `order`. By default, fixed effects (x - x_ref)^i, i=1,...,`order`-1
 are then added to the model.
 }
 \examples{

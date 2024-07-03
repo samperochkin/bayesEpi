@@ -7,7 +7,7 @@
 combineBetaGamma_iwp(samps, model, grids = NULL, silent = FALSE)
 }
 \arguments{
-\item{samps}{\verb{$samps} output of \code{aghq::marginal_laplace_tmb()} or similar (see details).}
+\item{samps}{`$samps` output of `aghq::marginal_laplace_tmb()` or similar (see details).}
 
 \item{model}{Object of class "ccModel" with iwp random effects (fitted with o-splines).}
 
@@ -20,8 +20,8 @@ A modification of the samps object containing the o-splines evaluated at the giv
 Function used to evaluate random effects (o-splines, including fixed effects for boundary conditions) on a given grid.
 }
 \details{
-\code{samps} is a matrix with samples as columns and rows that matches the fixed and random effects of the model.
-If \code{grids} is NULL, then the grids for all random effects are constructed automatically.
+`samps` is a matrix with samples as columns and rows that matches the fixed and random effects of the model.
+If `grids` is NULL, then the grids for all random effects are constructed automatically.
 If grids is a named list, then only the named random effects are considered;
 if their corresponding grid is NULL, then it is constructed automatically.
 }

@@ -23,7 +23,7 @@ ccModel(
 
 \item{random}{Named list of random effects. Each name should correspond to a variable in your data.}
 
-\item{overdispersion}{List specifying the model for the overdispersion terms. This is limited to \code{gaussian_effect()} for now.}
+\item{overdispersion}{List specifying the model for the overdispersion terms. This is limited to `gaussian_effect()` for now.}
 
 \item{design}{List specifying the case control referent frames.}
 
@@ -41,5 +41,5 @@ model <- ccModel(response = "count", time_index = "date",
                  random = list("o3_lag" = randomEffect(rw_effect(), pc_prec_prior()),
                                "temp_lag" = randomEffect(rw_effect(), pc_prec_prior())),
                  overdispersion = randomEffect(gaussian_effect(), pc_prec_prior(u = 10, alpha = .9)),
-                 design = ccDesign(), control_aghq = controlAGHQ())
+                 design = ccDesign(), aghq_input = controlAGHQ())
 }

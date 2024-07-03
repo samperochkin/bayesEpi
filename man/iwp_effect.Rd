@@ -9,7 +9,7 @@ iwp_effect(order = 2, poly_degree = order - 1, ref_value = median, knots)
 \arguments{
 \item{order}{Order of the first non-zero derivative.}
 
-\item{poly_degree}{Degree of the polynomial for additional fixed effects (by default \code{order}-1).
+\item{poly_degree}{Degree of the polynomial for additional fixed effects (by default `order`-1).
 Note that the intercept is excluded.}
 
 \item{ref_value}{Either a value or a function to be used for computing the reference value.}
@@ -21,7 +21,7 @@ A list specifying a integrated Wiener process model for a nonlinear random effec
 }
 \description{
 This is used to approximate Gaussian processes random effects.
-By default, fixed effects (x - x_ref)^i, i=1,...,\code{order}-1
+By default, fixed effects (x - x_ref)^i, i=1,...,`order`-1
 are added to the model.
 }
 \examples{
