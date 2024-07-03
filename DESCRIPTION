@@ -21,7 +21,6 @@ Suggests:
 Imports: 
     aghq,
     Matrix,
-    magrittr,
     TMB,
     purrr,
     GET,
