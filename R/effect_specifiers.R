@@ -8,7 +8,6 @@ fixedEffect <- function(model){
   if(model$type == "poly"){
     prior <- gaussian_prior(prec = rep(.01, model$params$degree))
   }else if(model$type == "bs"){
-    # prior <- gaussian_prior(prec = rep(.01, length(model$params$knots)+model$params$degree-2))
     prior <- gaussian_prior(prec = rep(.01, length(unlist(model$params$knots))+model$params$degree))
   } else {
     warning("type should be poly or bs")

@@ -15,7 +15,6 @@ fitModel <- function(model, data, silent = F, params_init = NULL){
 #' @method fitModel ccModel
 #' @export
 #' @useDynLib bayesEpi
-#' @importFrom magrittr %>%
 #' @import OSplines
 fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
 
@@ -41,10 +40,10 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
 
   # prior parameters
   prior_lookup <- c("pc_prec", "log_gamma")
-  beta_prec = c(purrr::map(model$fixed, ~ .x$prior$params$prec), purrr::map(model$random, ~ .x$beta_prior$params$prec)) %>% unlist
-  theta_prior <- c(purrr::map(model$random, ~ .x$theta_prior$type), z = model$overdispersion$theta_prior$type) %>% unlist
+  beta_prec = c(purrr::map(model$fixed, ~ .x$prior$params$prec), purrr::map(model$random, ~ .x$beta_prior$params$prec)) |> unlist()
+  theta_prior <- c(purrr::map(model$random, ~ .x$theta_prior$type), z = model$overdispersion$theta_prior$type) |> unlist()
   theta_prior_id = match(theta_prior , prior_lookup)
-  theta_hypers = c(purrr::map(model$random, ~ .x$theta_prior$params), z = model$overdispersion$theta_prior$params) %>% unlist
+  theta_hypers = c(purrr::map(model$random, ~ .x$theta_prior$params), z = model$overdispersion$theta_prior$params) |> unlist()
   if(is.null(theta_hypers)) theta_hypers <- numeric(0)
 
 

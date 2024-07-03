@@ -268,7 +268,7 @@ getCaseControl <- function(data, model){
         con <- setdiff(stratum[[id[c_day_id]]], time_stratum1[c_day_id])
         con <- c(con, rep(0, max_len-length(con)))
         con
-      }) %>% Reduce(f="rbind")
+      }) |> Reduce(f="rbind")
       # filter out case day with no control days
       keep <- apply(matrix(control_days %in% time_stratum1, nrow=nrow(control_days)),1,any)
       case_day_stratum1 <- case_day_stratum1[keep]
@@ -293,12 +293,12 @@ getCaseControl <- function(data, model){
   time <- as.integer(data[, model$time_index])
   case_day <- time[data[, model$response] > 0]
   if(design$scheme == "unidirectional"){
-    control_days <- purrr::map(-(design$n_control:1)*design$lag, ~ case_day + .x) %>% Reduce(f="cbind")
+    control_days <- purrr::map(-(design$n_control:1)*design$lag, ~ case_day + .x) |> Reduce(f="cbind")
     if(design$n_control == 1) control_days <- as.matrix(control_days)
   }else if(design$scheme == "bidirectional"){
     if(design$n_control %% 2 == 0){a <- design$n_control/2; a <- design$lag*(-a:a)[-(a+1)]}
     else{a <- (design$n_control+1)/2; a <- (-a:a)[-c(a+1,2*a+1)]}
-    control_days <- purrr::map(a, ~ case_day + .x) %>% Reduce(f="cbind")
+    control_days <- purrr::map(a, ~ case_day + .x) |> Reduce(f="cbind")
   }else if(design$scheme == "time stratified"){
     case_day_id <- match(case_day, time)
     if(design$stratum_rule == "sequential"){
@@ -328,7 +328,7 @@ getCaseControl <- function(data, model){
       con <- setdiff(stratum[[id[c_day_id]]], time[c_day_id])
       con <- c(con, rep(0, max_len-length(con)))
       con
-    }) %>% Reduce(f="rbind")
+    }) |> Reduce(f="rbind")
 
   }else{stop("The scheme", design$scheme, "is not implemented.")}
   # filter out case day with no control days
@@ -372,7 +372,7 @@ selectFixedOD <- function(data, model, case_day, control_days){
       }
 
       mem[c(1,which(diff(data$z[mem]) > max_lag) + 1)]
-    }) %>% unlist
+    }) |> unlist()
   }
 
   return(z_rem)
