@@ -20,11 +20,9 @@ Suggests:
     ggplot2
 Imports: 
     aghq,
-    Formula,
     Matrix,
     magrittr,
     TMB,
-    Rdpack,
     purrr,
     GET,
     OSplines,
