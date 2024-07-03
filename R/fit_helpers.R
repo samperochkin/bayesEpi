@@ -92,7 +92,7 @@ createFixedDesigns <- function(model, X){
     fixed_params <- model$fixed[[name]]$model$params
 
     if(fixed[[name]]$model$type == "poly"){
-      new_cols <- poly(X[,name] - fixed_params$ref_value, degree = fixed_params$degree, raw = T)
+      new_cols <- stats::poly(X[,name] - fixed_params$ref_value, degree = fixed_params$degree, raw = T)
       names(new_cols) <- paste0(name, "_", 1:fixed_params$degree)
       model$fixed[[name]]$model$extra$range <- range(X[,name])
 
@@ -163,7 +163,7 @@ createRandomDesigns <- function(model, U){
       model$random[[name]]$model$extra$removed_cols <- removed_cols
 
       if(random[[name]]$model$params$poly_degree > 0){
-        model$random[[name]]$model$extra$bin_values_int <- poly(bin_values - rounded_ref_value,
+        model$random[[name]]$model$extra$bin_values_int <- stats::poly(bin_values - rounded_ref_value,
                                                                 degree = model$random[[name]]$model$params$poly_degree,
                                                                 raw = TRUE)
       }
@@ -227,7 +227,7 @@ interpolationFixedEffects <-  function(random, U){
       if(random[[name]]$model$type == "random walk") cen <- random[[name]]$model$extra$rounded_ref_value
       if(random[[name]]$model$type == "integrated Wiener process") cen <- random[[name]]$model$params$ref_value
 
-      X_new <- poly(U[, name] - cen, degree = poly_degree, raw = TRUE)
+      X_new <- stats::poly(U[, name] - cen, degree = poly_degree, raw = TRUE)
       colnames(X_new) <- paste0(name, "__", attr(X_new, "degree"))
       return(X_new)
     }

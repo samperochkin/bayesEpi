@@ -167,7 +167,7 @@ getResults_general <- function(fit, probs_pw, probs_g, M, values){
                       variable_value = xx,
                       mean = rowMeans(yy),
                       median = apply(yy,1,stats::median),
-                      sd = apply(yy,1,sd))
+                      sd = apply(yy,1,stats::sd))
 
     # include pointwise coverage probs and global envelop
     if(!is.null(probs_pw)) df0 <- cbind(df0, computePCI_general(yy, probs_pw))
@@ -230,7 +230,7 @@ getResults_general <- function(fit, probs_pw, probs_g, M, values){
     df0 <- data.frame(parameter_type = as.factor("theta"),
                       variable_name = as.factor(variable_name),
                       variable_value = as.numeric(NA),
-                      mean = sapply(quad_samples$thetasamples, stats::mean),
+                      mean = sapply(quad_samples$thetasamples, mean),
                       median = sapply(quad_samples$thetasamples, stats::median),
                       sd = sapply(quad_samples$thetasamples, stats::sd))
 
