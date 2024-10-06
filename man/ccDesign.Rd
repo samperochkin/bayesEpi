@@ -13,10 +13,10 @@ ccDesign(...)
 Function for specifying the case control design.
 }
 \details{
-A default design is returned by \code{ccDesign()}. This latter can be changed, e.g., with \code{ccDesign(lag = 2)}.
-Arguments of interest are \code{scheme} ("unidirectional", "bidirectional", "time stratified"),
-\code{n_control} (number of control days, for uni- and bidirectional schemes), \code{lag} (e.g., 7 for ensuring that
-case and control fall on the same weekday) and \code{stratum_rule} (for time stratified schemes, the only rule
+A default design is returned by `ccDesign()`. This latter can be changed, e.g., with `ccDesign(lag = 2)`.
+Arguments of interest are `scheme` ("unidirectional", "bidirectional", "time stratified"),
+`n_control` (number of control days, for uni- and bidirectional schemes), `lag` (e.g., 7 for ensuring that
+case and control fall on the same weekday) and `stratum_rule` (for time stratified schemes, the only rule
 implemented is "month").
 }
 \examples{

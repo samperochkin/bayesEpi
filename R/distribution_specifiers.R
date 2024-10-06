@@ -4,7 +4,7 @@
 #' @return A list specifying a polynomial fixed effect.
 #' @export
 poly_effect <- function(degree = 1,
-                        ref_value = median){
+                        ref_value = stats::median){
 
   list(type="poly", params=mget(names(formals()),sys.frame(sys.nframe())))
 }
@@ -42,7 +42,7 @@ bs_effect <- function(knots,
 #' @export
 rw_effect <- function(order = 2,
                       poly_degree = order-1,
-                      ref_value = median,
+                      ref_value =stats::median,
                       binwidth = 1){
 
   list(type="random walk", params=mget(names(formals()),sys.frame(sys.nframe())))
@@ -67,7 +67,7 @@ rw_effect <- function(order = 2,
 #' @export
 iwp_effect <- function(order = 2,
                        poly_degree = order-1,
-                       ref_value = median,
+                       ref_value = stats::median,
                        knots){
 
   list(type="integrated Wiener process", params=mget(names(formals()),sys.frame(sys.nframe())))

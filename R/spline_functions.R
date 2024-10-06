@@ -1,7 +1,7 @@
 
 constructBS <- function(x, knots, degree, ref_value = knots[[2]][1]){
   cbind(
-    poly(x - ref_value, degree = degree-1, raw = T),
+    stats::poly(x - ref_value, degree = degree-1, raw = T),
     splines::splineDesign(x, knots = knots[[1]], ord=degree+1, outer.ok=TRUE),
     splines::splineDesign(x, knots = knots[[2]], ord=degree+1, outer.ok=TRUE)
   )

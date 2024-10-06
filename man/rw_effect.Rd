@@ -4,7 +4,12 @@
 \alias{rw_effect}
 \title{Specify a Gaussian random walk distribution for random effect.}
 \usage{
-rw_effect(order = 2, poly_degree = order - 1, ref_value = median, binwidth = 1)
+rw_effect(
+  order = 2,
+  poly_degree = order - 1,
+  ref_value = stats::median,
+  binwidth = 1
+)
 }
 \arguments{
 \item{order}{Order of the random walk. Restricted to 1, 2 and 3.}
@@ -23,7 +28,7 @@ This is used to approximate Gaussian processes random effects.
 When a Gaussian random walk is specified, the range of observed values is discretized into
 bins and the random effect is modeled as a random walk on these. For technical reasons, the
 bin that contain the reference value is removed, as well as some of its neighbors, so that
-the number of bins removed equals \code{order}. By default, fixed effects (x - x_ref)^i, i=1,...,\code{order}-1
+the number of bins removed equals `order`. By default, fixed effects (x - x_ref)^i, i=1,...,`order`-1
 are then added to the model.
 }
 \examples{

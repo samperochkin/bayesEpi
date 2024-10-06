@@ -11,7 +11,7 @@ fitModel(model, data, silent = F, params_init = NULL)
 
 \item{data}{The dataset on which the model is fitted. It should contain all the variables involved in the model.}
 
-\item{silent}{A boolean indicating whether you wish to silence the \code{aghq::marginal_laplace_tmb()} function (default is \code{TRUE}).}
+\item{silent}{A boolean indicating whether you wish to silence the `aghq::marginal_laplace_tmb()` function (default is `TRUE`).}
 }
 \value{
 An updated ccModel object that contains the fitted model (e.g., in ccModel$fit).

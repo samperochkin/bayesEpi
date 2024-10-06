@@ -22,6 +22,6 @@ pc_prec_prior(alpha = .5, u = .01)
 }
 \references{
 {
-\insertRef{Simpson:2017}{bayesEpi}
+  \insertRef{Simpson:2017}{bayesEpi}
 }
 }

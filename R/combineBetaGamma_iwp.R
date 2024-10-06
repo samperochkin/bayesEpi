@@ -74,7 +74,7 @@ combineBetaGamma_iwp <- function(samps, model, grids = NULL, silent = FALSE){
     counter_gamma <- counter_gamma + ncol(A)
     y <- A %*% samps[id_gamma,]
     if(random_params$poly_degree > 0){
-      X <- poly(u - ref_value,
+      X <- stats::poly(u - ref_value,
                 degree = random_params$poly_degree,
                 raw = TRUE)
       id_beta <- counter_beta + 1:ncol(X)

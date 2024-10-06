@@ -92,7 +92,7 @@ createFixedDesigns <- function(model, X){
     fixed_params <- model$fixed[[name]]$model$params
 
     if(fixed[[name]]$model$type == "poly"){
-      new_cols <- poly(X[,name] - fixed_params$ref_value, degree = fixed_params$degree, raw = T)
+      new_cols <- stats::poly(X[,name] - fixed_params$ref_value, degree = fixed_params$degree, raw = T)
       names(new_cols) <- paste0(name, "_", 1:fixed_params$degree)
       model$fixed[[name]]$model$extra$range <- range(X[,name])
 
@@ -128,7 +128,7 @@ createRandomDesigns <- function(model, U){
 
   # If no random effects
   if(is.null(random)){
-    return(list(As = list(as(matrix(nrow=nrow(U), ncol=0), "dgTMatrix")),
+    return(list(As = list(methods::as(matrix(nrow=nrow(U), ncol=0), "dgTMatrix")),
                 Xs_int = list(matrix(nrow=nrow(U), ncol=0)),
                 gamma_dims = integer(0),
                 model = model))
@@ -163,7 +163,7 @@ createRandomDesigns <- function(model, U){
       model$random[[name]]$model$extra$removed_cols <- removed_cols
 
       if(random[[name]]$model$params$poly_degree > 0){
-        model$random[[name]]$model$extra$bin_values_int <- poly(bin_values - rounded_ref_value,
+        model$random[[name]]$model$extra$bin_values_int <- stats::poly(bin_values - rounded_ref_value,
                                                                 degree = model$random[[name]]$model$params$poly_degree,
                                                                 raw = TRUE)
       }
@@ -180,10 +180,10 @@ createRandomDesigns <- function(model, U){
 
       ref_pos <- which(knots == ref_value)
       A <- NULL
-      if(ref_pos != 1) A <- cbind(A, as(local_poly(knots = rev(ref_value - knots[1:ref_pos]),
+      if(ref_pos != 1) A <- cbind(A, methods::as(local_poly(knots = rev(ref_value - knots[1:ref_pos]),
                                                    refined_x = ref_value - U[,name],
                                                    p = random_params$order), "sparseMatrix"))
-      if(ref_pos != length(knots)) A <- cbind(A, as(local_poly(knots = knots[ref_pos:length(knots)] - ref_value,
+      if(ref_pos != length(knots)) A <- cbind(A, methods::as(local_poly(knots = knots[ref_pos:length(knots)] - ref_value,
                                                                refined_x = U[,name] - ref_value,
                                                                p = random_params$order), "sparseMatrix"))
       As[[length(As)+1]] <- A
@@ -263,7 +263,7 @@ interpolationFixedEffects <-  function(random, U){
       if(random[[name]]$model$type == "random walk") cen <- random[[name]]$model$extra$rounded_ref_value
       if(random[[name]]$model$type == "integrated Wiener process") cen <- random[[name]]$model$params$ref_value
 
-      X_new <- poly(U[, name] - cen, degree = poly_degree, raw = TRUE)
+      X_new <- stats::poly(U[, name] - cen, degree = poly_degree, raw = TRUE)
       colnames(X_new) <- paste0(name, "__", attr(X_new, "degree"))
       return(X_new)
     }
@@ -304,7 +304,7 @@ getCaseControl <- function(data, model){
         con <- setdiff(stratum[[id[c_day_id]]], time_stratum1[c_day_id])
         con <- c(con, rep(0, max_len-length(con)))
         con
-      }) %>% Reduce(f="rbind")
+      }) |> Reduce(f="rbind")
       # filter out case day with no control days
       keep <- apply(matrix(control_days %in% time_stratum1, nrow=nrow(control_days)),1,any)
       case_day_stratum1 <- case_day_stratum1[keep]
@@ -329,12 +329,12 @@ getCaseControl <- function(data, model){
   time <- as.integer(data[, model$time_index])
   case_day <- time[data[, model$response] > 0]
   if(design$scheme == "unidirectional"){
-    control_days <- purrr::map(-(design$n_control:1)*design$lag, ~ case_day + .x) %>% Reduce(f="cbind")
+    control_days <- purrr::map(-(design$n_control:1)*design$lag, ~ case_day + .x) |> Reduce(f="cbind")
     if(design$n_control == 1) control_days <- as.matrix(control_days)
   }else if(design$scheme == "bidirectional"){
     if(design$n_control %% 2 == 0){a <- design$n_control/2; a <- design$lag*(-a:a)[-(a+1)]}
     else{a <- (design$n_control+1)/2; a <- (-a:a)[-c(a+1,2*a+1)]}
-    control_days <- purrr::map(a, ~ case_day + .x) %>% Reduce(f="cbind")
+    control_days <- purrr::map(a, ~ case_day + .x) |> Reduce(f="cbind")
   }else if(design$scheme == "time stratified"){
     case_day_id <- match(case_day, time)
     if(design$stratum_rule == "sequential"){
@@ -364,7 +364,7 @@ getCaseControl <- function(data, model){
       con <- setdiff(stratum[[id[c_day_id]]], time[c_day_id])
       con <- c(con, rep(0, max_len-length(con)))
       con
-    }) %>% Reduce(f="rbind")
+    }) |> Reduce(f="rbind")
 
   }else{stop("The scheme", design$scheme, "is not implemented.")}
   # filter out case day with no control days
@@ -408,7 +408,7 @@ selectFixedOD <- function(data, model, case_day, control_days){
       }
 
       mem[c(1,which(diff(data$z[mem]) > max_lag) + 1)]
-    }) %>% unlist
+    }) |> unlist()
   }
 
   return(z_rem)
@@ -446,12 +446,12 @@ selectFixedOD <- function(data, model, case_day, control_days){
 
 constructQ_rw <- function(random){
 
-  if(is.null(random)) return(as(matrix(nrow=0,ncol=0), "dgTMatrix"))
+  if(is.null(random)) return(methods::as(matrix(nrow=0,ncol=0), "dgTMatrix"))
   ids <- which(sapply(random, function(ran) ran$model$type == "random walk"))
-  if(length(ids) == 0) return(as(matrix(nrow=0,ncol=0), "dgTMatrix"))
+  if(length(ids) == 0) return(methods::as(matrix(nrow=0,ncol=0), "dgTMatrix"))
 
   createD <-function(d,p){
-    if(p==0) return(Diagonal(d,1))
+    if(p==0) return(Matrix::Diagonal(d,1))
     D <- Matrix::bandSparse(d,k =c(0,1),diagonals =list(rep(-1,d),rep(1,d-1)))[-d, ]
     if(p==1) return(D)
     else return(createD(d,p-1)[-1,-1] %*% D)
@@ -463,7 +463,7 @@ constructQ_rw <- function(random){
     Matrix::crossprod(createD(length(ran$model$extra$bin_values), order)[,-removed_cols])
   })
 
-  as(as(Matrix::bdiag(Qs), "generalMatrix"), "TsparseMatrix")
+  methods::as(methods::as(Matrix::bdiag(Qs), "generalMatrix"), "TsparseMatrix")
 }
 
 #' @import OSplines

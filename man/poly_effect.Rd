@@ -4,7 +4,7 @@
 \alias{poly_effect}
 \title{Specify a polynomial fixed effect.}
 \usage{
-poly_effect(degree = 1, ref_value = median)
+poly_effect(degree = 1, ref_value = stats::median)
 }
 \arguments{
 \item{poly_degree}{Degree of the polynomial.}
