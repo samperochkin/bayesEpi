@@ -4,7 +4,12 @@
 \alias{rw_effect}
 \title{Specify a Gaussian random walk distribution for random effect.}
 \usage{
-rw_effect(order = 2, poly_degree = order - 1, ref_value = median, binwidth = 1)
+rw_effect(
+  order = 2,
+  poly_degree = order - 1,
+  ref_value = stats::median,
+  binwidth = 1
+)
 }
 \arguments{
 \item{order}{Order of the random walk. Restricted to 1, 2 and 3.}

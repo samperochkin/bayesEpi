@@ -41,5 +41,5 @@ model <- ccModel(response = "count", time_index = "date",
                  random = list("o3_lag" = randomEffect(rw_effect(), pc_prec_prior()),
                                "temp_lag" = randomEffect(rw_effect(), pc_prec_prior())),
                  overdispersion = randomEffect(gaussian_effect(), pc_prec_prior(u = 10, alpha = .9)),
-                 design = ccDesign(), aghq_input = controlAGHQ())
+                 design = ccDesign(), aghq_input = aghqInput())
 }

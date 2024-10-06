@@ -4,7 +4,12 @@
 \alias{iwp_effect}
 \title{Specify an integrated Wiener process for random effect.}
 \usage{
-iwp_effect(order = 2, poly_degree = order - 1, ref_value = median, knots)
+iwp_effect(
+  order = 2,
+  poly_degree = order - 1,
+  ref_value = stats::median,
+  knots
+)
 }
 \arguments{
 \item{order}{Order of the first non-zero derivative.}
