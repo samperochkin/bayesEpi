@@ -187,6 +187,42 @@ createRandomDesigns <- function(model, U){
                                                                refined_x = U[,name] - ref_value,
                                                                p = random_params$order), "sparseMatrix"))
       As[[length(As)+1]] <- A
+    }else if(random[[name]]$model$type == "monotone Gaussian process"){
+
+
+      # # construct random design matrix
+      # B <- (Diagonal(1, n = 2*nrow(data_sim)))
+      # # take 1,3,5,...
+      # B <- B[seq(1, 2*nrow(data_sim), by = 2),]
+      # # then take only the first n_train rows:
+      # B <- B[1:nrow(data_train),]
+      #
+      # # construct penalty matrix:
+      # # recall that we want a = 2 for mGP induced by sqrt function.
+      # P <- mGP_joint_prec(t_vec = data_sim$x, a = 2, c = c)
+      # logPdet <- determinant(P)$modulus
+      #
+      #
+      #
+      # knots <- random_params$knots
+      # ref_value <- random_params$ref_value
+      # ran <- model$random[[name]]$model$extra$range <- range(U[,name])
+      #
+      # if(!(ref_value %in% knots)) stop("ref_value of", name, "cannot be found in the corresponding knots vector. \n")
+      # if(!(ran[1] >= knots[1] & ran[2] <= knots[length(knots)])) warning("knots for ", name, " do not span its range. Continuing anyway. \n")
+      # if(length(knots) <= 2) stop("knots for ", name, " is too small")
+      #
+      # ref_pos <- which(knots == ref_value)
+      # A <- NULL
+      # if(ref_pos != 1) A <- cbind(A, as(local_poly(knots = rev(ref_value - knots[1:ref_pos]),
+      #                                              refined_x = ref_value - U[,name],
+      #                                              p = random_params$order), "sparseMatrix"))
+      # if(ref_pos != length(knots)) A <- cbind(A, as(local_poly(knots = knots[ref_pos:length(knots)] - ref_value,
+      #                                                          refined_x = U[,name] - ref_value,
+      #                                                          p = random_params$order), "sparseMatrix"))
+      # As[[length(As)+1]] <- A
+    }else{
+      stop("model type (", random[[name]]$model$type, ") for random effect ", name, " is not valid.")
     }
 
   }

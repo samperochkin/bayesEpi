@@ -75,6 +75,30 @@ iwp_effect <- function(order = 2,
 
 
 
+#' Specify a montone Gaussian process for random effect.
+#'
+#' By default, fixed effects (x - x_ref)^i, i=1,...,`order`-1
+#' are added to the model.
+#'
+#' @param order Order of the first non-zero derivative.
+#' @param poly_degree Degree of the polynomial for additional fixed effects (by default `order`-1).
+#' Note that the intercept is excluded.
+#' @param ref_value Either a value or a function to be used for computing the reference value.
+#' @param knots Number of (equally spaced) knots to use.
+#' @return A list specifying a integrated Wiener process model for a nonlinear random effect.
+#' @examples
+#' iwp_effect()
+#' @export
+mgp_effect <- function(order = 2,
+                       poly_degree = order-1,
+                       ref_value = median,
+                       knots){
+
+  list(type="monotone Gaussian process", params=mget(names(formals()),sys.frame(sys.nframe())))
+}
+
+
+
 #' Specify a Gaussian random effect.
 #'
 #' This is used to include overdispersion in the model. This is the only model implemented so far.
