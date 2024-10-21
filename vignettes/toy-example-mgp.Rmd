@@ -1,0 +1,135 @@
+---
+title: "Toy example (monotone Gaussian process model)"
+author: "Samuel Perreault"
+date: "2024-10-08"
+output: html_document
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, results = F}
+library(bayesEpi)
+library(ggplot2)
+# devtools::load_all("~/Git/bayesEpi")
+# devtools::install_github("https://github.com/Smoothing-IWP/OSplines/tree/OSpline-Original") # If wanna use o-splines...
+```
+
+This vignette shows hot to use the `fitModel` function to fit a case crossover model with a monotone Gaussian process as model for random effects.
+
+## Toy data
+Consider the following dummy data:
+```{r data}
+set.seed(999)
+n <- 1000
+toyData <- data.frame(time = seq(n))
+
+# explanatory variables
+toyData$hum <- pmin(pmax((sin(toyData$time/365 * 2*pi) + 1)/2 + rnorm(n,0,.75),0),1)
+toyData$o3 <- pmax(5 + (sin(toyData$time/365 * 2*pi))/2 + rnorm(n,0,3),0)
+toyData$no2 <- pmax(7 + (sin(toyData$time/365 * 2*pi + pi/4))/2 + rnorm(n,0,5),0)
+
+par(mfrow= c(1,3))
+plot(toyData$hum, type="o", cex=.2)
+plot(toyData$o3, type="o", cex=.2)
+plot(toyData$no2, type="o", cex=.2)
+
+# overdispersion and hazard
+theta <- 6
+f_hum <- function(x) abs(1.25-x)
+f_o3 <- function(x) sqrt(x/100) 
+f_no2 <- function(x) sqrt(x/200)
+f_time <- function(x) .5 * sin(2*pi * x/365.25) + log(1+x/n) 
+
+# response variable
+toyData$count <- rpois(n,exp(f_hum(toyData$hum) + f_o3(toyData$o3) + f_time(toyData$time) + rnorm(n, 0, exp(-theta/2))))
+
+head(toyData)
+```
+Here, the names `hum`, `o3` and `no2` refer to humidity level, and ozone and nitrogen dioxide concentrations, which are three common variables in air pollution epidemiology (although the values they take here do not necessarily make sense). Note that we set their true effects to be sqrt-like. We will use `lambda = 1/2` later on to capture this.
+
+
+## Model specification
+To fit a case crossover model with `count` as response variable, `time` as the time index, `hum` as fixed effect and `o3` and `no2` as random effects, we first specify the model via
+```{r model}
+model <- bayesEpi::ccModel(
+  response = "count", time_index = "time",
+  fixed = list("hum" = fixedEffect(bayesEpi:::poly_effect(ref_value = median(toyData$hum)))),
+  random = list("o3" = randomEffect(mgp_effect(ref_value = 0, poly_degree = 1,
+                                               lambda = 1/2, c = .1,
+                                               method = "FEM", knots = 20, accuracy = .01),
+                                    pc_prec_prior(alpha=.5, u=.05)),
+                "no2" = randomEffect(mgp_effect(ref_value = 0, poly_degree = 1,
+                                                lambda = 1/2, c = .1,
+                                                method = "FEM", knots = 20, accuracy = .01),
+                                    pc_prec_prior(alpha=.5, u=.05))),
+  design = ccDesign(scheme = "time stratified", n_control=5, lag=1),
+  overdispersion = randomEffect(gaussian_effect(), pc_prec_prior(alpha=.5, u=.03)),
+  aghq_input = aghqInput())
+
+```
+We specify `method = "FEM"` (Finite Elements Method). The other option (`SS`) is the exact state-space representation and (the way it is implemented) is very numerically unstable; please do not use it.
+We set the reference values to zero; with the currect implementation, this should be the smallest value that the data can take, or the smallest value observed... We are working on this.
+
+## Fit
+We can then fit the model with the function `fitModel`, which usually prints a bunch of stuff (somewhat uninformative if you know nothing about the `aghq` package).
+```{r fit, results = F}
+fit <- fitModel(model, toyData, silent = T)
+```
+
+## Analysis of the results
+Some functions are provided for analyzing the results returned by `fitModel`.
+Median prediction as well as credible intervals can be obtained via the function `getResults`.
+```{r getResults, results = T}
+values <- NULL # default for mgp uses 100 (equally spaced) values with the range of observed data
+res <- getResults(fit, values = values,
+                  M = 5000, # M is number of samples to draw (for inference)
+                  probs_pw = c(.9), # nominal levels for pointwise CI
+                  probs_g = c(.9)) # nominal levels for global envelopes
+res[res$parameter_type == "theta",]
+```
+
+
+You can plot them as follows
+```{r plots, results = F}
+# subset results (and construct true effect data frame, for comparison)
+res0 <- res[res$parameter_type == "gamma*" & res$variable_name %in% c("o3", "no2"),]
+values <- list("o3" = res0[res0$variable_name == "o3",]$variable_value,
+               "no2" = res0[res0$variable_name == "no2",]$variable_value)
+ref_values <- list("o3" = fit$model$random$o3$model$params$ref_value,
+                   "no2" = fit$model$random$no2$model$params$ref_value)
+
+true_effect <- rbind(
+  data.frame(variable_name = "o3",
+             variable_value = values$o3,
+             median = f_o3(values$o3) - f_o3(ref_values$o3)), # f_o3(ref_values$o3) is just zero here
+  data.frame(variable_name = "no2",
+             variable_value = values$no2,
+             median = f_no2(values$no2) - f_no2(ref_values$no2))) # f_no2(ref_values$no2) is just zero here
+
+
+ggplot(res0, aes(x=variable_value, y=median)) +
+  theme_bw() +
+  ylab("log-relative risk") +
+  geom_line(data=true_effect, linetype=2) +
+  geom_line() +
+  geom_ribbon(aes(ymin=ge_lo_90, ymax=ge_hi_90), alpha = .25) +
+  facet_wrap(~variable_name, scales = "free")
+```
+
+We can also take a look at the overdispersion coefficients:
+```{r, overdispersion plot, results = F}
+
+res0 <- getResults_z(fit, probs_pw = .9, probs_g = NULL, M = 5000)
+
+ggplot(res0, aes(x=variable_value, y=median)) +
+  theme_bw() +
+  xlab("overdispersion coef. (z)") + ylab("log-relative risk") +
+  geom_hline(yintercept = 0, linetype = 2) +
+  geom_point(size=.35) +
+  geom_ribbon(aes(ymin=perc_5, ymax=perc_95), alpha = .25)
+```

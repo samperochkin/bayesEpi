@@ -1,5 +1,5 @@
 ---
-title: "Toy example"
+title: "Toy example (random walk model)"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Toy example}
@@ -21,7 +21,7 @@ library(ggplot2)
 # devtools::install_github("https://github.com/Smoothing-IWP/OSplines/tree/OSpline-Original") # If wanna use o-splines...
 ```
 
-This vignette shows hot to use the `fitModel` function to fit a case crossover model.
+This vignette shows hot to use the `fitModel` function to fit a case crossover model with RW2 models for the random effects.
 
 ## Toy data
 Consider the following dummy data:

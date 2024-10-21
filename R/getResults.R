@@ -130,7 +130,7 @@ getResults_fixed_only <- function(fit, probs_pw, probs_g, M, values = NULL){
   return(df)
 }
 
-getResults_general <- function(fit, probs_pw, probs_g, M, values){
+getResults_general <- function(fit, probs_pw, probs_g, M, values, data){
 
   quad_samples <- aghq::sample_marginal(fit$quad, M)
   model <- fit$model
@@ -184,38 +184,88 @@ getResults_general <- function(fit, probs_pw, probs_g, M, values){
   ### RANDOM EFFECTS ###
   ######################
   counter_random <- which(names(fit$obj$env$last.par.best) == "gamma")[1] - 1
+
   if(is.na(counter_random)) counter_random <- 0
   for(nam in names(random)){
 
-    if(random[[nam]]$model$type != "random walk") stop("Invalid random effect type")
+    if(random[[nam]]$model$type == "random walk"){
+      model0 <- model
+      model0$random <- model0$random[nam]
+      uu <- model0$random[[nam]]$model$extra$bin_values # get values
+      UU <- matrix(uu, ncol=1, dimnames = list(NULL, nam))
 
-    model0 <- model
-    model0$random <- model0$random[nam]
-    uu <- model0$random[[nam]]$model$extra$bin_values # get values
-    UU <- matrix(uu, ncol=1, dimnames = list(NULL, nam))
+      rDesign <- bayesEpi:::createRandomDesigns(model0, UU)
+      AA <- rDesign$As[[nam]]
+      XX <- rDesign$Xs_int[[nam]]
 
-    rDesign <- bayesEpi:::createRandomDesigns(model0, UU)
-    AA <- rDesign$As[[nam]]
-    XX <- rDesign$Xs_int[[nam]]
+      # evaluate effect at xx
+      yy <- as.matrix(AA %*% quad_samples$samps[counter_random + 1:ncol(AA),]) +
+        XX %*% quad_samples$samps[counter_fixed + 1:ncol(XX),]
 
-    # evaluate effect at xx
-    yy <- as.matrix(AA %*% quad_samples$samps[counter_random + 1:ncol(AA),]) +
-      XX %*% quad_samples$samps[counter_fixed + 1:ncol(XX),]
+      df0 <- data.frame(parameter_type = as.factor("gamma*"),
+                        variable_name = as.factor(nam),
+                        variable_value = uu,
+                        mean = rowMeans(yy),
+                        median = apply(yy,1,stats::median),
+                        sd = apply(yy,1,stats::sd))
 
-    df0 <- data.frame(parameter_type = as.factor("gamma*"),
-                      variable_name = as.factor(nam),
-                      variable_value = uu,
-                      mean = rowMeans(yy),
-                      median = apply(yy,1,stats::median),
-                      sd = apply(yy,1,stats::sd))
+      # include pointwise coverage probs and global envelop
+      if(!is.null(probs_pw)) df0 <- cbind(df0, computePCI_general(yy, probs_pw))
+      if(!is.null(probs_g)) df0 <- cbind(df0, computeGE_general(yy, probs_g))
 
-    # include pointwise coverage probs and global envelop
-    if(!is.null(probs_pw)) df0 <- cbind(df0, computePCI_general(yy, probs_pw))
-    if(!is.null(probs_g)) df0 <- cbind(df0, computeGE_general(yy, probs_g))
+      df <- rbind(df, df0)
+      counter_random <- counter_random + ncol(AA)
+      counter_fixed <- counter_fixed + ncol(XX)
+    }else if(random[[nam]]$model$type == "monotone Gaussian process"){
 
-    df <- rbind(df, df0)
-    counter_random <- counter_random + ncol(AA)
-    counter_fixed <- counter_fixed + ncol(XX)
+      model0 <- model
+      model0$random <- model0$random[nam]
+      model0_params <- model0$random[[1]]$model$params
+
+      uut <- values[[nam]] # get values
+      if(is.null(uut)){
+        uut <- seq(model0_params$region[1], model0_params$region[2], length.out=100)
+      }else{
+        if(min(uut) < model0_params$region[1] | max(uut) > model0_params$region[2]){
+          stop("The values provided for ", nam, " are outside the range allowed. This is an mgp effect, and the values should be covered by:
+               model$random$",nam,"$model$params$region
+               which in this case is ", model$random[[nam]]$model$params$region)
+        }
+      }
+
+      uu <- if(model0_params$lambda == 0){
+        exp(uut) - model0_params$c
+      }else{
+        uut^(1/model0_params$lambda) - model0_params$c
+      }
+      UU <- matrix(uut, ncol=1, dimnames = list(NULL, nam))
+
+      rDesign <- bayesEpi:::createRandomDesigns(model0, matrix(uut, ncol=1, dimnames = list(NULL, nam)))
+      AA <- rDesign$As[[nam]]
+      XX <- rDesign$Xs_int[[nam]]
+
+      yy <- XX %*% quad_samples$samps[counter_fixed + 1:ncol(XX),] +
+        AA %*% quad_samples$samps[counter_random + 1:ncol(AA),] |> as.matrix()
+
+      df0 <- data.frame(parameter_type = as.factor("gamma*"),
+                        variable_name = as.factor(nam),
+                        variable_value = uu,
+                        mean = rowMeans(yy),
+                        median = apply(yy,1,stats::median),
+                        sd = apply(yy,1,stats::sd))
+
+      # include pointwise coverage probs and global envelop
+      if(!is.null(probs_pw)) df0 <- cbind(df0, computePCI_general(yy, probs_pw))
+      if(!is.null(probs_g)) df0 <- cbind(df0, computeGE_general(yy, probs_g))
+
+      df <- rbind(df, df0)
+      counter_random <- counter_random + ncol(AA)
+      counter_fixed <- counter_fixed + ncol(XX)
+
+    }else{
+      stop("Invalid random effect type")
+    }
+
   }
 
 

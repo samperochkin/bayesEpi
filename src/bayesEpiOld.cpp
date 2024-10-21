@@ -32,11 +32,9 @@ Type objective_function<Type>::operator() ()
   DATA_MATRIX(X);
   DATA_SPARSE_MATRIX(A);
 
-  DATA_IVECTOR(random_effect_ids);
+  DATA_INTEGER(random_effect_id);
   DATA_SPARSE_MATRIX(Q_rw);
   DATA_VECTOR(Q_iwp);
-  DATA_SPARSE_MATRIX(Q_mgp);
-  DATA_VECTOR(log_det_Q_mgp);
   DATA_IVECTOR(gamma_dims);
 
   DATA_VECTOR(beta_prec);
@@ -101,7 +99,6 @@ Type objective_function<Type>::operator() ()
   Type log_pi_beta = 0;
   for(int i=0;i<beta_dim;i++) log_pi_beta += dnorm(beta(i), Type(0), 1/sqrt(beta_prec(i)), true);
   REPORT(log_pi_beta);
-  // Rcout << "beta : " << beta << "\n";
   // Rcout << "lbeta : " << log_pi_beta << "\n";
 
 
@@ -114,65 +111,31 @@ Type objective_function<Type>::operator() ()
     Type log_det_Q = 0;
     Type maha = 0;
     int k = 0;
-    int k_rw = 0;
-    int k_iwp = 0;
-    int k_mgp = 0;
 
-    int v_rw_dim = 0;
-    int v_mgp_dim = 0;
-    for(int i=0;i<gamma_dims.size();i++){
-      if(random_effect_ids(i) == 1){
-        v_rw_dim += gamma_dims(i);
-      }else if(random_effect_ids(i) == 3){
-        v_mgp_dim += gamma_dims(i);
-      }
-    }
-    vector<Type> v_rw(v_rw_dim);
-    vector<Type> v_mgp(v_mgp_dim);
-
-
-    for(int i=0;i<gamma_dims.size();i++){
-
-      if(random_effect_ids(i) == 1){
-        // RANDOM WALK
-        log_det_Q += theta(i) * Type(gamma_dims(i));
-        for(int j=0;j<gamma_dims(i);j++) v_rw(k_rw+j) = gamma(k+j)*sqrt(exp(theta(i)));
-        k_rw += gamma_dims(i);
-        k += gamma_dims(i);
-
-      }else if(random_effect_ids(i) == 2){
-      // INTEGRATED WIENER PROCESS
-        for(int j=0; j<gamma_dims(i); j++){
-          log_det_Q += log(Q_iwp(k_iwp+j)) + theta(i);
-          maha += gamma(k+j) * exp(theta(i)) * Q_iwp(k_iwp+j) * gamma(k+j);
-        }
-        k_iwp += gamma_dims(i);
-        k += gamma_dims(i);
-
-      }else if(random_effect_ids(i) == 3){
-        // MONTONE GAUSSIAN PROCESS
-        for(int j=0;j<gamma_dims(i);j++) v_mgp(k_mgp+j) = gamma(k+j)*sqrt(exp(theta(i)));
-        k_mgp += gamma_dims(i);
-        k += gamma_dims(i);
-
-      }
-    }
-
-    if(k_rw > 0) maha += (v_rw*(Q_rw*v_rw).col(0)).sum();
-    if(k_mgp > 0){
-      int kk = 0;
+    if(random_effect_id == 1){
+      // RANDOM WALK
+      vector<Type> v(gamma_dim);
       for(int i=0;i<gamma_dims.size();i++){
-        if(random_effect_ids(i) == 3) log_det_Q += gamma_dims(i)*theta(i) + log_det_Q_mgp(kk);
-        kk += 1;
+        log_det_Q += theta(i) * Type(gamma_dims(i));
+        for(int j=0;j<gamma_dims(i);j++) v(k+j) = gamma(k+j)*exp(theta(i));
+        k += gamma_dims(i);
       }
-      maha += (v_mgp*(Q_mgp*v_mgp).col(0)).sum();
+      maha += (v*(Q_rw*gamma).col(0)).sum();
+
+    }else if(random_effect_id == 2){
+      // INTEGRATED WIENER PROCESS
+      for(int i=0; i<gamma_dims.size(); i++){
+        for(int j=0; j<gamma_dims(i); j++){
+          log_det_Q += log(Q_iwp(k+j)) + theta(i);
+          maha += gamma(k+j) * exp(theta(i)) * Q_iwp(k+j) * gamma(k+j);
+        }
+        k += gamma_dims(i);
+      }
     }
 
     log_pi_gamma += 0.5*(log_det_Q - maha);
   }
-
   REPORT(log_pi_gamma);
-  // Rcout << "gamma : " << gamma(0) << "\n";
   // Rcout << "lgamma : " << log_pi_gamma << "\n";
 
 

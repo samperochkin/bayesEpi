@@ -25,12 +25,15 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   list2env(getCaseControl(data, model), envir = environment())
   list2env(setRefValues(data, model), envir = environment())
 
-  # overdispersion and design matrices
+  # overdispersion and basic design matrices
   overdispersion <- !is.null(model$overdispersion)
   X <- as.matrix(data[names(model$fixed)])
   U <- as.matrix(data[names(model$random)])
 
-  # bluids design matrices for fixed effects
+  # apply transformations (if any)
+  list2env(applyTransformations(model, X, U), envir = environment())
+
+  # buids design matrices for fixed effects
   # creates Xs_exp
   list2env(createFixedDesigns(model, X), envir = environment())
 
@@ -52,16 +55,24 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
     stop("Random effects must all be of the same type (either 'random walk' or 'integrated Wiener process'). Mixing to be implemented.")
   #############################
 
-  random_effect_id <- match(model$random[[1]]$model$type, c("random walk", "integrated Wiener process"))
-  if(length(random_effect_id) == 0) random_effect_id <- 0L
+  random_effect_types <- sapply(model$random, \(ran) ran$model$type)
+  if(length(random_effect_types) == 0){
+    random_effect_ids <- 0L
+  }else{
+    random_effect_ids <- match(random_effect_types, c("random walk", "integrated Wiener process", "monotone Gaussian process"))
+  }
 
+  # construct Q_mgp and log_det_mgp (only for mgp)
+  list2env(constructQ_mgp(model$random, U), envir = environment())
 
   # Model fit ---------------------------------------------------------------
   tmb_data <- list(count = data[case_day, model$response],
                    case_day = case_day, control_days = control_days,
                    X = cbind(X,Reduce("cbind", Xs_int)), A = Reduce("cbind", As),
-                   random_effect_id = random_effect_id,
-                   Q_rw = constructQ_rw(model$random), Q_iwp = constructQ_iwp(model$random),
+                   random_effect_ids = random_effect_ids,
+                   Q_rw = constructQ_rw(model$random),
+                   Q_iwp = constructQ_iwp(model$random),
+                   Q_mgp = Q_mgp, log_det_Q_mgp = log_det_Q_mgp,
                    gamma_dims = gamma_dims, beta_prec = beta_prec,
                    theta_prior_id = theta_prior_id, theta_hypers = theta_hypers)
 
@@ -92,7 +103,7 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
                                           startingvalue =  theta_init, control = model$aghq_input$control)) |>
         utils::capture.output() |> invisible()
     }else{
-      quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
+        quad <- aghq::marginal_laplace_tmb(ff = obj, k = model$aghq_input$k,
                                          startingvalue =  theta_init, control = model$aghq_input$control)
     }
   }

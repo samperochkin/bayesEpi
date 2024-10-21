@@ -61,7 +61,7 @@ rw_effect <- function(order = 2,
 #' Note that the intercept is excluded.
 #' @param ref_value Either a value or a function to be used for computing the reference value.
 #' @param knots Number of (equally spaced) knots to use.
-#' @return A list specifying a integrated Wiener process model for a nonlinear random effect.
+#' @return A list specifying an integrated Wiener process model for a nonlinear random effect.
 #' @examples
 #' iwp_effect()
 #' @export
@@ -77,22 +77,32 @@ iwp_effect <- function(order = 2,
 
 #' Specify a montone Gaussian process for random effect.
 #'
-#' By default, fixed effects (x - x_ref)^i, i=1,...,`order`-1
+#' By default, fixed effects (x - x_ref)^i, i=1,...,`poly_degree` (`poly_degree` = 1)
 #' are added to the model.
 #'
-#' @param order Order of the first non-zero derivative.
-#' @param poly_degree Degree of the polynomial for additional fixed effects (by default `order`-1).
+#' @param poly_degree Degree of the polynomial for additional fixed effects (by default set to 1).
 #' Note that the intercept is excluded.
 #' @param ref_value Either a value or a function to be used for computing the reference value.
-#' @param knots Number of (equally spaced) knots to use.
-#' @return A list specifying a integrated Wiener process model for a nonlinear random effect.
+#' @param lambda Power of the Box-Cox type transformation.
+#' @param c Small value added to the data for numerical reasons.
+#' @param method Either `FEM` (finite elements, default) or `SS` (state space).
+#' @param knots Number of (equally spaced) knots to use (for `method = 'FEM'`).
+#' @param region Region of the covariate sample space to cover (for `method = 'FEM'`).
+#' @param accuracy (Numeric. Default: `.001`).
+#' @param boundary (Logical. Default: `T`).
+#' @return A list specifying a monotone Gaussian process process model for a nonlinear random effect.
 #' @examples
-#' iwp_effect()
+#' mgp_effect()
 #' @export
-mgp_effect <- function(order = 2,
-                       poly_degree = order-1,
-                       ref_value = median,
-                       knots){
+mgp_effect <- function(poly_degree = 1,
+                       ref_value = NULL, # smallest possible value
+                       lambda = 2, # sqrt as default
+                       c = 1e-3,
+                       method = "FEM",
+                       knots = NULL,
+                       region = NULL,
+                       accuracy = .01,
+                       boundary = T){
 
   list(type="monotone Gaussian process", params=mget(names(formals()),sys.frame(sys.nframe())))
 }

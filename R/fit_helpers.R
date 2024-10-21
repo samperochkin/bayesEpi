@@ -121,6 +121,35 @@ createFixedDesigns <- function(model, X){
 }
 #
 
+
+
+# apply transformations
+applyTransformations <- function(model, X, U){
+  lfixed <- sapply(names(model$fixed), \(nam) model$fixed[[nam]]$model$params$lambda, USE.NAMES = T, simplify = F)
+  lfixed <- lfixed[!sapply(lfixed, is.null)]
+  cfixed <- sapply(names(lfixed), \(nam) model$fixed[[nam]]$model$params$c, USE.NAMES = T, simplify = F)
+  for(nam in names(lfixed)){
+    if(lfixed[[nam]] == 0){
+      X[,nam] <- log(X[,nam] + cfixed[[nam]])
+    }else{
+      X[,nam] <- (X[,nam] + cfixed[[nam]])^lfixed[[nam]]
+    }
+  }
+
+  lrandom <- sapply(names(model$random), \(nam) model$random[[nam]]$model$params$lambda, USE.NAMES = T, simplify = F)
+  lrandom <- lrandom[!sapply(lrandom, is.null)]
+  crandom <- sapply(names(lrandom), \(nam) model$random[[nam]]$model$params$c, USE.NAMES = T, simplify = F)
+  for(nam in names(lrandom)){
+    if(lrandom[[nam]] == 0){
+      U[,nam] <- log(U[,nam] + crandom[[nam]])
+    }else{
+      U[,nam] <- (U[,nam] + crandom[[nam]])^lrandom[[nam]]
+    }
+  }
+  list(U = U, X = X)
+}
+
+
 # builds design matrices for random effects (and those for the associated fixed effects)
 createRandomDesigns <- function(model, U){
 
@@ -141,8 +170,9 @@ createRandomDesigns <- function(model, U){
   for(name in random_names){
 
     random_params <- model$random[[name]]$model$params
+    random_type <- model$random[[name]]$model$type
 
-    if(random[[name]]$model$type == "random walk"){
+    if(random_type == "random walk"){
       if(!("binwidth" %in% names(random[[name]]$model$params))) stop("binwidth is not specified for random effect ", name,".")
 
       new_u <- round(U[,name]/random_params$binwidth)
@@ -168,7 +198,7 @@ createRandomDesigns <- function(model, U){
                                                                 raw = TRUE)
       }
 
-    }else if(random[[name]]$model$type == "integrated Wiener process"){
+    }else if(random_type == "integrated Wiener process"){
 
       knots <- random_params$knots
       ref_value <- random_params$ref_value
@@ -187,40 +217,29 @@ createRandomDesigns <- function(model, U){
                                                                refined_x = U[,name] - ref_value,
                                                                p = random_params$order), "sparseMatrix"))
       As[[length(As)+1]] <- A
-    }else if(random[[name]]$model$type == "monotone Gaussian process"){
+    }else if(random_type == "monotone Gaussian process"){
+      list2env(random_params, envir = environment())
+      a <- ifelse(lambda == 0, 1, 1/(1-lambda))
 
+      # some housekeeping
+      if(is.null(ref_value)){
+        model$random[[name]]$model$params$ref_value <- min(U[,name]^(1/lambda) - c)
+        model$random[[name]]$model$extra$tref_value <- min(U[,name])
+      }
 
-      # # construct random design matrix
-      # B <- (Diagonal(1, n = 2*nrow(data_sim)))
-      # # take 1,3,5,...
-      # B <- B[seq(1, 2*nrow(data_sim), by = 2),]
-      # # then take only the first n_train rows:
-      # B <- B[1:nrow(data_train),]
-      #
-      # # construct penalty matrix:
-      # # recall that we want a = 2 for mGP induced by sqrt function.
-      # P <- mGP_joint_prec(t_vec = data_sim$x, a = 2, c = c)
-      # logPdet <- determinant(P)$modulus
-      #
-      #
-      #
-      # knots <- random_params$knots
-      # ref_value <- random_params$ref_value
-      # ran <- model$random[[name]]$model$extra$range <- range(U[,name])
-      #
-      # if(!(ref_value %in% knots)) stop("ref_value of", name, "cannot be found in the corresponding knots vector. \n")
-      # if(!(ran[1] >= knots[1] & ran[2] <= knots[length(knots)])) warning("knots for ", name, " do not span its range. Continuing anyway. \n")
-      # if(length(knots) <= 2) stop("knots for ", name, " is too small")
-      #
-      # ref_pos <- which(knots == ref_value)
-      # A <- NULL
-      # if(ref_pos != 1) A <- cbind(A, as(local_poly(knots = rev(ref_value - knots[1:ref_pos]),
-      #                                              refined_x = ref_value - U[,name],
-      #                                              p = random_params$order), "sparseMatrix"))
-      # if(ref_pos != length(knots)) A <- cbind(A, as(local_poly(knots = knots[ref_pos:length(knots)] - ref_value,
-      #                                                          refined_x = U[,name] - ref_value,
-      #                                                          p = random_params$order), "sparseMatrix"))
-      # As[[length(As)+1]] <- A
+      As[[length(As)+1]] <- if(method == "SS"){
+        Diagonal(1, n = 2*nrow(U))[seq(1, 2*nrow(U), by = 2),]
+
+      }else if(method == "FEM"){
+
+        # some more housekeeping
+        if(is.null(region)) model$random[[name]]$model$params$region <- region <- range(U[,name])
+        if(is.null(knots)) stop("Must specify the number of knots (`knots` for mGP with `method=FEM`) for random effect ", nam)
+
+        Compute_Design(x=U[,name], k=knots, region=region, boundary=boundary) |>
+          as("dgTMatrix")
+      }
+
     }else{
       stop("model type (", random[[name]]$model$type, ") for random effect ", name, " is not valid.")
     }
@@ -251,6 +270,10 @@ createRandomDesigns <- function(model, U){
 # }
 #
 
+
+
+
+
 interpolationFixedEffects <-  function(random, U){
 
   random_names <- names(random)
@@ -258,10 +281,17 @@ interpolationFixedEffects <-  function(random, U){
     if ("poly_degree" %in% names(random[[name]]$model$params)) {
 
       poly_degree <- random[[name]]$model$params$poly_degree
-      if (poly_degree == 0) return(matrix(nrow=nrow(U), ncol=0))
+      if(poly_degree == 0) return(matrix(nrow=nrow(U), ncol=0))
 
       if(random[[name]]$model$type == "random walk") cen <- random[[name]]$model$extra$rounded_ref_value
       if(random[[name]]$model$type == "integrated Wiener process") cen <- random[[name]]$model$params$ref_value
+      if(random[[name]]$model$type == "monotone Gaussian process"){
+        # lambda <- random[[name]]$model$params$lambda
+        # c <- random[[name]]$model$params$c
+        # cen <- random[[name]]$model$params$ref_value + c
+        # cen <- ifelse(lambda == 0, log(cen), cen^lambda)
+        cen <- 0
+      }
 
       X_new <- stats::poly(U[, name] - cen, degree = poly_degree, raw = TRUE)
       colnames(X_new) <- paste0(name, "__", attr(X_new, "degree"))
@@ -415,35 +445,6 @@ selectFixedOD <- function(data, model, case_day, control_days){
 }
 
 
-# Construct the precision matrix Q for the random effects (Gaussian random walks).
-# NEED TO BE GENERALIZED TO ALLOW BOTH TYPES (i.e., return sparse diag matrix for iwp too)
-# BUT FOR THIS, the TMB templates need to be merged...
-# constructQ <- function(random){
-#
-#   if(is.null(random)) return(as(matrix(nrow=0,ncol=0), "dgTMatrix"))
-#
-#   createD <-function(d,p){
-#     if(p==0) return(Diagonal(d,1))
-#     D <- Matrix::bandSparse(d,k =c(0,1),diagonals =list(rep(-1,d),rep(1,d-1)))[-d, ]
-#     if(p==1) return(D)
-#     else return(createD(d,p-1)[-1,-1] %*% D)
-#   }
-#
-#   Qs <- lapply(random, function(ran){
-#     if(ran$model$type == "random walk"){
-#       removed_cols <- ran$model$extra$removed_cols
-#       order <- ran$model$params$order
-#       return(Matrix::crossprod(createD(length(ran$model$extra$bin_values), order)[,-removed_cols]))
-#     }else if(ran$model$type == "integrated Wiener process"){
-#       return(diag(compute_weights_precision(x = ran$model$params$knots)))
-#     }
-#   })
-#
-#   # HERE ****** TO GENERALIZE
-#   if(random[[1]]$model$type == "random walk") return(Matrix::bdiag(Qs))
-#   if(random[[1]]$model$type == "integrated Wiener process") return(unlist(Qs))
-# }
-
 constructQ_rw <- function(random){
 
   if(is.null(random)) return(methods::as(matrix(nrow=0,ncol=0), "dgTMatrix"))
@@ -478,6 +479,49 @@ constructQ_iwp <- function(random){
   }))
 }
 
+
+constructQ_mgp <- function(random, U){
+
+  random_types <- sapply(random, \(ran) ran$model$type)
+  random_mgp <- random[random_types == "monotone Gaussian process"]
+  if(length(random_mgp) == 0) return(list(Q_mgp = methods::as(matrix(nrow=0,ncol=0), "dgTMatrix"),
+                                     log_det_Q_mgp = 0))
+
+
+  Qs <- lapply(names(random_mgp), function(nam){
+
+    ran_params <- random_mgp[[nam]]$model$params
+    list2env(ran_params, envir = environment())
+    a <- ifelse(lambda == 0, 1, 1/(1-lambda))
+
+    if(method == "SS"){
+      # (need to undo the transformation for this one...)
+      u <- if(lambda == 0){
+        exp(U[,nam]) - c
+      }else{
+        U[,nam]^(1/lambda) - c
+      }
+
+      oo <- order(u)
+      ooo <- rep(2*oo, each=2) - rep(1:0, times=nrow(U))
+      Q <- Matrix(data = 0, nrow = 2*nrow(U)+1, ncol = 2*nrow(U), sparse=T)[-1,] |> as("dgTMatrix")
+      Q[ooo,ooo] <- mGP_joint_prec(t_vec = u[oo], alpha = a, c = c)
+
+    }else if(method == "FEM"){
+      # if region was null, it has been set in createRandomDesigns
+      Q <- Compute_Prec(a=a, c=c, k=knots, region=region, accuracy=.1, boundary=boundary)
+
+    }else{
+      stop("Unknown method (", method, ") for mGP for covariate ", nam)
+    }
+
+    return(Q)
+  })
+
+  log_det <- sapply(Qs, \(Q) Matrix::determinant(Q)$modulus)
+  Q_mgp <- methods::as(methods::as(Matrix::bdiag(Qs), "generalMatrix"), "TsparseMatrix")
+  return(list(Q_mgp=Q_mgp, log_det_Q_mgp=log_det))
+}
 
 
 # Compute initial theta parameter to be passed to aghq::quad.
