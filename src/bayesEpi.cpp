@@ -162,8 +162,10 @@ Type objective_function<Type>::operator() ()
     if(k_mgp > 0){
       int kk = 0;
       for(int i=0;i<gamma_dims.size();i++){
-        if(random_effect_ids(i) == 3) log_det_Q += gamma_dims(i)*theta(i) + log_det_Q_mgp(kk);
-        kk += 1;
+        if(random_effect_ids(i) == 3){
+          log_det_Q += gamma_dims(i)*theta(i) + log_det_Q_mgp(kk);
+          kk += 1;
+        }
       }
       maha += (v_mgp*(Q_mgp*v_mgp).col(0)).sum();
     }

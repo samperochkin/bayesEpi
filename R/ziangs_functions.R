@@ -1,24 +1,276 @@
 
 
+
+# Adaptation of the local_poly function from the OSplines packages --------
+local_poly <- function(knots, refined_x, p){
+
+  if (min(knots) >= 0) {
+    dif <- diff(knots)
+    nn <- length(refined_x)
+    n <- length(knots)
+    D <- matrix(0, nrow = nn, ncol = n - 1)
+    for (j in 1:nn) {
+      for (i in 1:(n - 1)) {
+        if (refined_x[j] <= knots[i]) {
+          D[j, i] <- 0
+        }
+        else if (refined_x[j] <= knots[i + 1] & refined_x[j] >=
+                 knots[i]) {
+          D[j, i] <- (1/factorial(p)) * (refined_x[j] -
+                                           knots[i])^p
+        }
+        else {
+          k <- 1:p
+          D[j, i] <- sum((dif[i]^k) * ((refined_x[j] -
+                                          knots[i + 1])^(p - k))/(factorial(k) * factorial(p -
+                                                                                             k)))
+        }
+      }
+    }
+  }
+  else if (max(knots) <= 0) {
+    refined_x_neg <- refined_x
+    refined_x_neg <- ifelse(refined_x < 0, -refined_x, 0)
+    knots_neg <- knots
+    knots_neg <- unique(sort(ifelse(knots < 0, -knots, 0)))
+    dif <- diff(knots_neg)
+    nn <- length(refined_x_neg)
+    n <- length(knots_neg)
+    D <- matrix(0, nrow = nn, ncol = n - 1)
+    for (j in 1:nn) {
+      for (i in 1:(n - 1)) {
+        if (refined_x_neg[j] <= knots_neg[i]) {
+          D[j, i] <- 0
+        }
+        else if (refined_x_neg[j] <= knots_neg[i + 1] &
+                 refined_x_neg[j] >= knots_neg[i]) {
+          D[j, i] <- (1/factorial(p)) * (refined_x_neg[j] -
+                                           knots_neg[i])^p
+        }
+        else {
+          k <- 1:p
+          D[j, i] <- sum((dif[i]^k) * ((refined_x_neg[j] -
+                                          knots_neg[i + 1])^(p - k))/(factorial(k) *
+                                                                        factorial(p - k)))
+        }
+      }
+    }
+  }
+  else {
+    refined_x_neg <- refined_x
+    refined_x_neg <- ifelse(refined_x < 0, -refined_x, 0)
+    knots_neg <- knots
+    knots_neg <- unique(sort(ifelse(knots < 0, -knots, 0)))
+    dif <- diff(knots_neg)
+    nn <- length(refined_x_neg)
+    n <- length(knots_neg)
+    D1 <- matrix(0, nrow = nn, ncol = n - 1)
+    for (j in 1:nn) {
+      for (i in 1:(n - 1)) {
+        if (refined_x_neg[j] <= knots_neg[i]) {
+          D1[j, i] <- 0
+        }
+        else if (refined_x_neg[j] <= knots_neg[i + 1] &
+                 refined_x_neg[j] >= knots_neg[i]) {
+          D1[j, i] <- (1/factorial(p)) * (refined_x_neg[j] -
+                                            knots_neg[i])^p
+        }
+        else {
+          k <- 1:p
+          D1[j, i] <- sum((dif[i]^k) * ((refined_x_neg[j] -
+                                           knots_neg[i + 1])^(p - k))/(factorial(k) *
+                                                                         factorial(p - k)))
+        }
+      }
+    }
+    refined_x_pos <- refined_x
+    refined_x_pos <- ifelse(refined_x > 0, refined_x, 0)
+    knots_pos <- knots
+    knots_pos <- unique(sort(ifelse(knots > 0, knots, 0)))
+    dif <- diff(knots_pos)
+    nn <- length(refined_x_pos)
+    n <- length(knots_pos)
+    D2 <- matrix(0, nrow = nn, ncol = n - 1)
+    for (j in 1:nn) {
+      for (i in 1:(n - 1)) {
+        if (refined_x_pos[j] <= knots_pos[i]) {
+          D2[j, i] <- 0
+        }
+        else if (refined_x_pos[j] <= knots_pos[i + 1] &
+                 refined_x_pos[j] >= knots_pos[i]) {
+          D2[j, i] <- (1/factorial(p)) * (refined_x_pos[j] -
+                                            knots_pos[i])^p
+        }
+        else {
+          k <- 1:p
+          D2[j, i] <- sum((dif[i]^k) * ((refined_x_pos[j] -
+                                           knots_pos[i + 1])^(p - k))/(factorial(k) *
+                                                                         factorial(p - k)))
+        }
+      }
+    }
+    D <- cbind(D1, D2)
+  }
+  D
+}
+
+
+
+compute_weights_precision <- function(knots){
+  if (min(knots) >= 0) {
+    as(diag(diff(knots)), "matrix")
+  }
+  else if (max(knots) < 0) {
+    knots_neg <- knots
+    knots_neg <- unique(sort(ifelse(knots < 0, -knots, 0)))
+    as(diag(diff(knots_neg)), "matrix")
+  }
+  else {
+    knots_neg <- knots
+    knots_neg <- unique(sort(ifelse(knots < 0, -knots, 0)))
+    knots_pos <- knots
+    knots_pos <- unique(sort(ifelse(knots > 0, knots, 0)))
+    d1 <- diff(knots_neg)
+    d2 <- diff(knots_pos)
+    Precweights1 <- diag(d1)
+    Precweights2 <- diag(d2)
+    as(Matrix::bdiag(Precweights1, Precweights2), "matrix")
+  }
+}
+
+
+
 # FEM method for mGP ------------------------------------------------------
+
+# prepare_fem_data <- function(data_sim, data_train, k, a, c, ref_value = NULL) {
+#   # Set ref_value if not provided
+#   if (is.null(ref_value)) {
+#     ref_value <- median(data_sim$x)
+#   }
+#
+#   # Compute lambda
+#   lambda <- (a - 1) / a
+#
+#   # Fixed design matrix
+#   m <- function(x){
+#     if(lambda == 0)
+#       (c + ref_value)*(log(x + c) - log(c + ref_value))
+#     else
+#       ((x + c)^lambda - (c + ref_value)^lambda)/(lambda * (c + ref_value)^(lambda - 1))
+#   }
+#   # Fixed design matrix for training data
+#   X_train <- Matrix::sparse.model.matrix(~ 1 + m(data_train$x))
+#
+#   # Update c based on ref_value
+#   c_new <- c + ref_value
+#
+#   # Prepare forward and backward design matrices for training data
+#   train_x_pos <- pmax(data_train$x - ref_value, 0)
+#   all_x_pos <- pmax(data_sim$x - ref_value, 0)
+#
+#   train_x_neg <- pmax(ref_value - data_train$x, 0)
+#   all_x_neg <- pmax(ref_value - data_sim$x, 0)
+#
+#   # Define B and penalty matrices based on non-zero regions for training data
+#   if (all(all_x_pos == 0)) {
+#     B_train <- Compute_Design(train_x_neg, k, region = range(all_x_neg))
+#     P <- Compute_Prec_rev(k, region = range(all_x_neg), a = a, c = c_new)
+#     B_sim <- Compute_Design(all_x_neg, k, region = range(all_x_neg))
+#
+#   } else if (all(all_x_neg == 0)) {
+#     B_train <- Compute_Design(train_x_pos, k, region = range(all_x_pos))
+#     P <- Compute_Prec(k, region = range(all_x_pos), a = a, c = c_new)
+#     B_sim <- Compute_Design(all_x_pos, k, region = range(all_x_pos))
+#   } else {
+#     B_pos <- Compute_Design(train_x_pos, k, region = range(all_x_pos))
+#     B_neg <- Compute_Design(train_x_neg, k, region = range(all_x_neg))
+#     B_train <- Matrix::cbind2(B_pos, B_neg)
+#
+#     B_pos <- Compute_Design(all_x_pos, k, region = range(all_x_pos))
+#     B_neg <- Compute_Design(all_x_neg, k, region = range(all_x_neg))
+#     B_sim <- Matrix::cbind2(B_pos, B_neg)
+#
+#     # Penalty matrices
+#     P_pos <- Compute_Prec(k, region = range(all_x_pos), a = a, c = c_new)
+#     P_neg <- Compute_Prec_rev(k, region = range(all_x_neg), a = a, c = c_new)
+#     P <- Matrix::bdiag(P_pos, P_neg)
+#   }
+#
+#   # Fixed design matrix for simulation data
+#   X_sim <- Matrix::sparse.model.matrix(~ 1 + m(data_sim$x))
+#
+#   # Convert all matrices to "dgTMatrix" format before returning
+#   return(list(
+#     X_train = as(X_train, "dgTMatrix"),
+#     B_train = as(B_train, "dgTMatrix"),
+#     X_sim = as(X_sim, "dgTMatrix"),
+#     B_sim = as(B_sim, "dgTMatrix"),
+#     P = as(P, "dgTMatrix"),
+#     logPdet = as.numeric(determinant(P)$modulus),
+#     ref_value = ref_value
+#   ))
+# }
+
+
+# # Updated fit_mGP_once_FEM_ref function
+# fit_mGP_once_FEM_ref <- function(data_sim, data_train, u, betaprec = 0.001,
+#                                  k = 30, a, c, ref_location = NULL, accuracy = 0.01, boundary = TRUE) {
+#   # Prepare shared data
+#   fem_data <- prepare_fem_data(data_sim, data_train, k, a, c, ref_location)
+#
+#   # Model fitting data
+#   tmbdat <- list(
+#     y = data_train$y, X = fem_data$X_train, B = fem_data$B_train, P = fem_data$P,
+#     logPdet = fem_data$logPdet, betaprec = betaprec, sig = sd_noise,
+#     u = u, alpha = 0.5
+#   )
+#
+#   tmbparams <- list(W = numeric(ncol(fem_data$X_train) + ncol(fem_data$B_train)), theta = 0)
+#
+#   # Fit model
+#   ff <- TMB::MakeADFun(data = tmbdat, parameters = tmbparams, DLL = "fitGP_known_sd",
+#                        random = "W", silent = TRUE)
+#
+#   ff$he <- function(w) numDeriv::jacobian(ff$gr, w)
+#   fit <- aghq::marginal_laplace_tmb(ff, k = 4, startingvalue = 0)
+#
+#   # Return fit along with pre-computed data for sampling
+#   return(list(fit = fit, X_sim = fem_data$X_sim, B_sim = fem_data$B_sim, ref_location = fem_data$ref_location))
+# }
+
+# # Updated sample_model_once_FEM_ref function
+# sample_model_once_FEM_ref <- function(model_fit, M = 3000) {
+#   # Extract fit and simulation design matrices
+#   fit <- model_fit$fit
+#   X_sim <- model_fit$X_sim
+#   B_sim <- model_fit$B_sim
+#
+#   # Sampling
+#   samps <- aghq::sample_marginal(quad = fit, M = M)
+#   beta_samps <- samps$samps[(nrow(samps$samps) - 1):nrow(samps$samps),]
+#   basis_weights_samps <- samps$samps[1:(nrow(samps$samps) - 2),]
+#
+#   # Use pre-computed matrices for sampling on data_sim
+#   f_samps_combined <- X_sim %*% beta_samps + B_sim %*% basis_weights_samps
+#
+#   return(f_samps_combined)
+# }
+
 ## let a(.) be a given function
-Compute_Prec <- function(a, c, k, region, accuracy = 0.01, boundary = TRUE){
+Compute_Prec <- function(a, c, k, region, accuracy = 0.01, boundary = TRUE, rev = FALSE){
   ss <- function(M) {Matrix::forceSymmetric(M + Matrix::t(M))}
   x <- seq(min(region),max(region),by = accuracy)
-  if(boundary == TRUE){
-    B_basis <- suppressWarnings(fda::create.bspline.basis(rangeval = c(min(region),max(region)),
-                                                          nbasis = k,
-                                                          norder = 4,
-                                                          dropind = c(1,2)))
-  }else{
-    B_basis <- suppressWarnings(fda::create.bspline.basis(rangeval = c(min(region),max(region)),
-                                                          nbasis = k,
-                                                          norder = 4))
-  }
+  dropind <- if(boundary){c(1,2)}else{NULL}
+  B_basis <- suppressWarnings(fda::create.bspline.basis(rangeval = c(min(region),max(region)),
+                                                        nbasis = k,
+                                                        norder = 4,
+                                                        dropind = dropind))
   Bmatrix <- fda::eval.basis(x, B_basis, Lfdobj=0, returnMatrix=TRUE)
   B1matrix <-  fda::eval.basis(x, B_basis, Lfdobj=1, returnMatrix=TRUE)
   B2matrix <-  fda::eval.basis(x, B_basis, Lfdobj=2, returnMatrix=TRUE)
-  a_func <- function(x) {-1/(a*(x+c))}
+
+
+  a_func <- function(x) (-1)^(rev+1)/(a*(x+c))
   a_matrix <- a_func(x)
   B1a <- as(apply(B1matrix, 2, function(x) x*a_matrix), "dgCMatrix")
 
@@ -31,6 +283,9 @@ Compute_Prec <- function(a, c, k, region, accuracy = 0.01, boundary = TRUE){
   Q <- G - M + C
   Matrix::forceSymmetric(Q)
 }
+
+
+
 
 Compute_Design <- function(x, k, region, boundary = TRUE){
   if(boundary){

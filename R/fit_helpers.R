@@ -1,6 +1,12 @@
+###########################################################################
 # Helpers -----------------------------------------------------------------
+###########################################################################
 
-# Checkups
+
+
+
+
+# Checkups ----------------------------------------------------------------
 checkups <- function(model, data){
   findVariables(model, data)
   # list2env(renameResponseTimeIndex(model, data), envir = environment())
@@ -16,30 +22,6 @@ findVariables <- function(model, data){
   }
 }
 
-# For convenience
-# renameResponseTimeIndex <- function(model, data){
-#
-#   if(model$response != "count"){
-#     if("count" %in% names(data)){
-#       message("Renaming the response 'count' and removing the original 'count' variable.")
-#       data$count <- NULL
-#     }
-#     names(data)[names(data) == model$response] <- "count"
-#     model$response <- "count"
-#   }
-#
-#   if(!(model$time_index == "time")){
-#     if("time" %in% names(data)){
-#       message("Renaming the time_index 'time' and removing the original 'time' variable.")
-#       data$time <- NULL
-#     }
-#     names(data)[names(data) == model$time_index] <- "time"
-#     model$time_index <- "time"
-#   }
-#
-#   list(model = model, data = data)
-# }
-
 # check for NA and remove them.
 removeNA <- function(model, data){
   var_names <- c(model$response, model$time_index, names(model$fixed),names(model$random))
@@ -54,6 +36,11 @@ removeNA <- function(model, data){
   }
 }
 
+
+
+
+
+# General setup -----------------------------------------------------------
 # Set reference values, in case a function was provided as `ref_value`.
 setRefValues <- function(data, model){
 
@@ -74,235 +61,6 @@ getColsToRemove <- function(ref_value_pos, order){
   if(order > 4) stop("Random walks of order > 4, which you specified for ", name, " are not yet implemented.")
   removed_cols
 }
-
-# builds design matrices for random effects (and those for the associated fixed effects)
-createFixedDesigns <- function(model, X){
-
-  fixed <- model$fixed
-
-  # If no fixed effects
-  if(is.null(fixed)) return(list(Xs_exp = list(matrix(nrow=nrow(X), ncol=0))))
-
-
-  fixed_names <- names(fixed)
-  Xs_exp <- list()
-
-  for(name in fixed_names){
-
-    fixed_params <- model$fixed[[name]]$model$params
-
-    if(fixed[[name]]$model$type == "poly"){
-      new_cols <- stats::poly(X[,name] - fixed_params$ref_value, degree = fixed_params$degree, raw = T)
-      names(new_cols) <- paste0(name, "_", 1:fixed_params$degree)
-      model$fixed[[name]]$model$extra$range <- range(X[,name])
-
-    }else if(fixed[[name]]$model$type == "bs"){
-
-
-      knots <- fixed_params$knots
-      degree <- fixed_params$degree
-      ref_value <- fixed_params$ref_value
-
-      if(!(ref_value %in% knots[[1]] & ref_value %in% knots[[2]])) stop("ref_value of ", name, "cannot be found in the corresponding knots vector. \n")
-      new_cols <- constructBS(x = X[,name], knots = knots, degree = degree, ref_value = ref_value)
-
-    }else{
-      stop("Invalid fixed effect model")
-
-    }
-
-    Xs_exp <- c(Xs_exp, list(new_cols))
-  }
-
-  names(Xs_exp) <- fixed_names
-  X <- do.call("cbind", Xs_exp)
-
-  list(X = X, Xs_exp = Xs_exp, model = model)
-}
-#
-
-
-
-# apply transformations
-applyTransformations <- function(model, X, U){
-  lfixed <- sapply(names(model$fixed), \(nam) model$fixed[[nam]]$model$params$lambda, USE.NAMES = T, simplify = F)
-  lfixed <- lfixed[!sapply(lfixed, is.null)]
-  cfixed <- sapply(names(lfixed), \(nam) model$fixed[[nam]]$model$params$c, USE.NAMES = T, simplify = F)
-  for(nam in names(lfixed)){
-    if(lfixed[[nam]] == 0){
-      X[,nam] <- log(X[,nam] + cfixed[[nam]])
-    }else{
-      X[,nam] <- (X[,nam] + cfixed[[nam]])^lfixed[[nam]]
-    }
-  }
-
-  lrandom <- sapply(names(model$random), \(nam) model$random[[nam]]$model$params$lambda, USE.NAMES = T, simplify = F)
-  lrandom <- lrandom[!sapply(lrandom, is.null)]
-  crandom <- sapply(names(lrandom), \(nam) model$random[[nam]]$model$params$c, USE.NAMES = T, simplify = F)
-  for(nam in names(lrandom)){
-    if(lrandom[[nam]] == 0){
-      U[,nam] <- log(U[,nam] + crandom[[nam]])
-    }else{
-      U[,nam] <- (U[,nam] + crandom[[nam]])^lrandom[[nam]]
-    }
-  }
-  list(U = U, X = X)
-}
-
-
-# builds design matrices for random effects (and those for the associated fixed effects)
-createRandomDesigns <- function(model, U){
-
-  random <- model$random
-
-  # If no random effects
-  if(is.null(random)){
-    return(list(As = list(methods::as(matrix(nrow=nrow(U), ncol=0), "dgTMatrix")),
-                Xs_int = list(matrix(nrow=nrow(U), ncol=0)),
-                gamma_dims = integer(0),
-                model = model))
-  }
-
-
-  random_names <- names(random)
-  As <- list()
-
-  for(name in random_names){
-
-    random_params <- model$random[[name]]$model$params
-    random_type <- model$random[[name]]$model$type
-
-    if(random_type == "random walk"){
-      if(!("binwidth" %in% names(random[[name]]$model$params))) stop("binwidth is not specified for random effect ", name,".")
-
-      new_u <- round(U[,name]/random_params$binwidth)
-      bin_values <- min(new_u):max(new_u) * random_params$binwidth
-      fac <- factor(new_u, levels = seq(min(new_u), max(new_u),1), labels = paste0(name,"__",bin_values))
-      A <- Matrix::t(Matrix::fac2sparse(fac, drop.unused.levels = F))
-
-      # Set reference value by setting corresponding column of A (and neighbours) to zero.
-      ref_value_pos <- which.min(abs(random_params$ref_value - bin_values))
-      rounded_ref_value <- bin_values[ref_value_pos]
-      removed_cols <- getColsToRemove(ref_value_pos, random_params$order)
-      As[[length(As)+1]] <- A[, -removed_cols]
-
-      # for later
-      model$random[[name]]$model$extra$bin_values <- bin_values
-      model$random[[name]]$model$extra$rounded_ref_value <- rounded_ref_value
-      model$random[[name]]$model$extra$ref_value_pos <- ref_value_pos
-      model$random[[name]]$model$extra$removed_cols <- removed_cols
-
-      if(random[[name]]$model$params$poly_degree > 0){
-        model$random[[name]]$model$extra$bin_values_int <- stats::poly(bin_values - rounded_ref_value,
-                                                                degree = model$random[[name]]$model$params$poly_degree,
-                                                                raw = TRUE)
-      }
-
-    }else if(random_type == "integrated Wiener process"){
-
-      knots <- random_params$knots
-      ref_value <- random_params$ref_value
-      ran <- model$random[[name]]$model$extra$range <- range(U[,name])
-
-      if(!(ref_value %in% knots)) stop("ref_value of", name, "cannot be found in the corresponding knots vector. \n")
-      if(!(ran[1] >= knots[1] & ran[2] <= knots[length(knots)])) warning("knots for ", name, " do not span its range. Continuing anyway. \n")
-      if(length(knots) <= 2) stop("knots for ", name, " is too small")
-
-      ref_pos <- which(knots == ref_value)
-      A <- NULL
-      if(ref_pos != 1) A <- cbind(A, methods::as(local_poly(knots = rev(ref_value - knots[1:ref_pos]),
-                                                   refined_x = ref_value - U[,name],
-                                                   p = random_params$order), "sparseMatrix"))
-      if(ref_pos != length(knots)) A <- cbind(A, methods::as(local_poly(knots = knots[ref_pos:length(knots)] - ref_value,
-                                                               refined_x = U[,name] - ref_value,
-                                                               p = random_params$order), "sparseMatrix"))
-      As[[length(As)+1]] <- A
-    }else if(random_type == "monotone Gaussian process"){
-      list2env(random_params, envir = environment())
-      a <- ifelse(lambda == 0, 1, 1/(1-lambda))
-
-      # some housekeeping
-      if(is.null(ref_value)){
-        model$random[[name]]$model$params$ref_value <- min(U[,name]^(1/lambda) - c)
-        model$random[[name]]$model$extra$tref_value <- min(U[,name])
-      }
-
-      As[[length(As)+1]] <- if(method == "SS"){
-        Diagonal(1, n = 2*nrow(U))[seq(1, 2*nrow(U), by = 2),]
-
-      }else if(method == "FEM"){
-
-        # some more housekeeping
-        if(is.null(region)) model$random[[name]]$model$params$region <- region <- range(U[,name])
-        if(is.null(knots)) stop("Must specify the number of knots (`knots` for mGP with `method=FEM`) for random effect ", nam)
-
-        Compute_Design(x=U[,name], k=knots, region=region, boundary=boundary) |>
-          as("dgTMatrix")
-      }
-
-    }else{
-      stop("model type (", random[[name]]$model$type, ") for random effect ", name, " is not valid.")
-    }
-
-  }
-
-  names(As) <- random_names
-  Xs_int <- interpolationFixedEffects(model$random, U)
-  gamma_dims <- sapply(As, ncol)
-  gamma_dims <- gamma_dims[gamma_dims != 0]
-
-  list(As = As, gamma_dims = gamma_dims, Xs_int = Xs_int, model = model)
-}
-#
-
-# findKnotsPlacement <- function(k, ran, ref_value){
-#
-#   knots <- seq(ran[1], ran[2], length.out = k)
-#   nearest_knot <- which.min(abs(knots - ref_value))
-#   if(nearest_knot == 1) nearest_knot <- 2
-#   if(nearest_knot == k) nearest_knot <- k-1
-#   shift <- ref_value - knots[nearest_knot]
-#
-#   if(shift > 0) knots <- seq(ran[1], ran[2] + shift*(1+1/(nearest_knot-1)*(k-nearest_knot)), length.out = k)
-#   if(shift < 0) knots <- seq(ran[1] + shift*(1+1/(k-nearest_knot)*(nearest_knot-1)), ran[2], length.out = k)
-#
-#   return(knots)
-# }
-#
-
-
-
-
-
-interpolationFixedEffects <-  function(random, U){
-
-  random_names <- names(random)
-  sapply(random_names, function(name) {
-    if ("poly_degree" %in% names(random[[name]]$model$params)) {
-
-      poly_degree <- random[[name]]$model$params$poly_degree
-      if(poly_degree == 0) return(matrix(nrow=nrow(U), ncol=0))
-
-      if(random[[name]]$model$type == "random walk") cen <- random[[name]]$model$extra$rounded_ref_value
-      if(random[[name]]$model$type == "integrated Wiener process") cen <- random[[name]]$model$params$ref_value
-      if(random[[name]]$model$type == "monotone Gaussian process"){
-        # lambda <- random[[name]]$model$params$lambda
-        # c <- random[[name]]$model$params$c
-        # cen <- random[[name]]$model$params$ref_value + c
-        # cen <- ifelse(lambda == 0, log(cen), cen^lambda)
-        cen <- 0
-      }
-
-      X_new <- stats::poly(U[, name] - cen, degree = poly_degree, raw = TRUE)
-      colnames(X_new) <- paste0(name, "__", attr(X_new, "degree"))
-      return(X_new)
-    }
-    else {
-      return(matrix(nrow=nrow(U), ncol=0))
-    }
-  }, simplify = FALSE, USE.NAMES = TRUE)
-}
-#
 
 # Create the case_day vector and the corresponding control_days matrix.
 #' @import purrr
@@ -355,69 +113,344 @@ getCaseControl <- function(data, model){
     else stop("The stratum rule ", design$stratum_rule, " is not implemented if a stratum variable is supplied.")
   }
   else{
-  design <- model$design
-  time <- as.integer(data[, model$time_index])
-  case_day <- time[data[, model$response] > 0]
-  if(design$scheme == "unidirectional"){
-    control_days <- purrr::map(-(design$n_control:1)*design$lag, ~ case_day + .x) |> Reduce(f="cbind")
-    if(design$n_control == 1) control_days <- as.matrix(control_days)
-  }else if(design$scheme == "bidirectional"){
-    if(design$n_control %% 2 == 0){a <- design$n_control/2; a <- design$lag*(-a:a)[-(a+1)]}
-    else{a <- (design$n_control+1)/2; a <- (-a:a)[-c(a+1,2*a+1)]}
-    control_days <- purrr::map(a, ~ case_day + .x) |> Reduce(f="cbind")
-  }else if(design$scheme == "time stratified"){
-    case_day_id <- match(case_day, time)
-    if(design$stratum_rule == "sequential"){
-      t0 <- min(time)
-      # do something with model$design$stratum_var --- data[,model$design$stratum_var]
-      # stop("error)
-      # id for the stratum (window_id, dow_id)
-      id <- paste(floor((time - t0)/(design$lag * (design$n_control+1))),
-                  (time - t0) %% design$lag, sep = "-")
-      # id <- paste(floor((time - t0)/(design$lag * (design$n_control+1))),
-      #             (time - t0) %% design$lag,
-      #             stratum_var, sep = "-")
+    design <- model$design
+    time <- as.integer(data[, model$time_index])
+    case_day <- time[data[, model$response] > 0]
+    if(design$scheme == "unidirectional"){
+      control_days <- purrr::map(-(design$n_control:1)*design$lag, ~ case_day + .x) |> Reduce(f="cbind")
+      if(design$n_control == 1) control_days <- as.matrix(control_days)
+    }else if(design$scheme == "bidirectional"){
+      if(design$n_control %% 2 == 0){a <- design$n_control/2; a <- design$lag*(-a:a)[-(a+1)]}
+      else{a <- (design$n_control+1)/2; a <- (-a:a)[-c(a+1,2*a+1)]}
+      control_days <- purrr::map(a, ~ case_day + .x) |> Reduce(f="cbind")
+    }else if(design$scheme == "time stratified"){
+      case_day_id <- match(case_day, time)
+      if(design$stratum_rule == "sequential"){
+        t0 <- min(time)
+        # do something with model$design$stratum_var --- data[,model$design$stratum_var]
+        # stop("error)
+        # id for the stratum (window_id, dow_id)
+        id <- paste(floor((time - t0)/(design$lag * (design$n_control+1))),
+                    (time - t0) %% design$lag, sep = "-")
+        # id <- paste(floor((time - t0)/(design$lag * (design$n_control+1))),
+        #             (time - t0) %% design$lag,
+        #             stratum_var, sep = "-")
 
-    }else if(design$stratum_rule == "month"){
-      id <- paste(format(data[, model$time_index], "%Y-%m"), time %% design$lag, sep=".")
+      }else if(design$stratum_rule == "month"){
+        id <- paste(format(data[, model$time_index], "%Y-%m"), time %% design$lag, sep=".")
 
-    }else stop("The stratum rule", design$stratum_rule, "is not implemented.")
+      }else stop("The stratum rule", design$stratum_rule, "is not implemented.")
 
-    # stata (case and control days togeteher)
-    stratum <- split(time, id)
+      # stata (case and control days togeteher)
+      stratum <- split(time, id)
 
-    # number of columns of control_days matrix
-    max_len <- max(sapply(stratum, length)) - 1
+      # number of columns of control_days matrix
+      max_len <- max(sapply(stratum, length)) - 1
 
-    # for each case day, enumerates control days (0 means empty)
-    control_days <- lapply(case_day_id, function(c_day_id){
-      con <- setdiff(stratum[[id[c_day_id]]], time[c_day_id])
-      con <- c(con, rep(0, max_len-length(con)))
-      con
-    }) |> Reduce(f="rbind")
+      # for each case day, enumerates control days (0 means empty)
+      control_days <- lapply(case_day_id, function(c_day_id){
+        con <- setdiff(stratum[[id[c_day_id]]], time[c_day_id])
+        con <- c(con, rep(0, max_len-length(con)))
+        con
+      }) |> Reduce(f="rbind")
 
-  }else{stop("The scheme", design$scheme, "is not implemented.")}
-  # filter out case day with no control days
-  keep <- apply(matrix(control_days %in% time, nrow=nrow(control_days)),1,any)
-  case_day <- case_day[keep]
-  control_days <- control_days[keep,,drop=F]
+    }else{stop("The scheme", design$scheme, "is not implemented.")}
+    # filter out case day with no control days
+    keep <- apply(matrix(control_days %in% time, nrow=nrow(control_days)),1,any)
+    case_day <- case_day[keep]
+    control_days <- control_days[keep,,drop=F]
 
-  # filter out days that are neither case nor control days
-  keep <- time %in% unique(c(case_day,control_days))
-  time <- time[keep]
-  data <- data[keep,]
+    # filter out days that are neither case nor control days
+    keep <- time %in% unique(c(case_day,control_days))
+    time <- time[keep]
+    data <- data[keep,]
 
-  case_day <- (1:nrow(data))[match(case_day, time)]
-  control_days <- matrix((1:nrow(data))[match(control_days, time, nomatch = NA)], nrow(control_days))
-  control_days[is.na(control_days)] <- 0
-  if(any(rowSums(control_days) == 0)) stop("Error in selecting the control days")
+    case_day <- (1:nrow(data))[match(case_day, time)]
+    control_days <- matrix((1:nrow(data))[match(control_days, time, nomatch = NA)], nrow(control_days))
+    control_days[is.na(control_days)] <- 0
+    if(any(rowSums(control_days) == 0)) stop("Error in selecting the control days")
 
-  list(data = data, case_day = case_day, control_days = control_days)
+    list(data = data, case_day = case_day, control_days = control_days)
   }
 }
 #
 
-# Identify where to remove (not to put) overdispersion terms
+
+
+
+
+# Design matrices ---------------------------------------------------------
+
+# helper to apply transformation if needed (used to apply reference value too)
+applyTransformation <- function(frmodel, xORu){
+
+  ref_value <- frmodel$params$ref_value
+  lambda <- frmodel$params$lambda
+  c <- frmodel$params$c
+
+  # if(is.null(lambda)) return(xORu - ref_value) # REFREF
+  # if(lambda == 0) return(log(xORu + c) - log(ref_value + c)) # REFREF
+  # if(lambda != 0) return((xORu + c)^lambda - (ref_value + c)^lambda) # REFREF
+
+  if(is.null(lambda)) return(xORu - ref_value)
+
+  if(is.null(c)) c <- 0
+  tc <- c + ref_value
+
+  if(lambda == 0) return(tc*(log(xORu + c) - log(tc)))
+  if(lambda != 0) return(((xORu + c)^lambda - tc^lambda)/(lambda * tc^(lambda - 1))) # REFREF
+}
+
+applyInvTransformation <- function(frmodel, xORu){
+
+  ref_value <- frmodel$params$ref_value
+  lambda <- frmodel$params$lambda
+  c <- frmodel$params$c
+
+  if(is.null(lambda)) return(xORu + ref_value)
+
+  if(is.null(c)) c <- 0
+  tc <- c + ref_value
+
+  if(lambda == 0) return(exp(xORu/tc + log(tc)) - c)
+  if(lambda != 0) return((xORu*(lambda * tc^(lambda - 1)) + tc^lambda)^(1/lambda) - c)
+}
+
+# helper to distribute appropriately distribute knots around
+# reference value for mgp random effects (note: output standardized so that ref_value = 0)
+splitKnots <- function(knots, range, ref_value){
+
+  if(ref_value <= range[1]){
+    return(list(knots = list(neg = NULL, pos = knots),
+                abs_ranges = list(neg = NULL, pos = c(0, range[2]-ref_value))))
+  }
+  if(ref_value >= range[2]){
+    return(list(knots = list(neg = knots, pos = NULL),
+                abs_ranges = list(neg = c(0, ref_value-range[2]), pos = NULL)))
+  }
+
+  knots_loc <- seq(min(range)-ref_value, max(range)-ref_value, length.out=knots-1)
+  offset <- knots_loc[which.min(abs(knots_loc))]
+  knots_loc <- knots_loc - offset
+
+  if(offset != 0){
+    if(offset > 0) knots_loc <- c(knots_loc, knots_loc[length(knots_loc)] + diff(knots_loc[1:2]))
+    if(offset < 0) knots_loc <- c(knots_loc[1] - diff(knots_loc[1:2]), knots_loc)
+    cat("Some mGP random effects are fitted (FEM) using one more knot than specified, to ensure that the reference value is contained in the knots.\n")
+  }
+
+  knots_neg <- sum(knots_loc <= 0); knots_pos <- sum(knots_loc >= 0)
+  if(min(knots_neg, knots_pos) < 3) stop("Some choices of the 'knots' parameter (for some mGP) lead to less than three knots on at least one side of the reference value.\n")
+
+  list(knots = list(neg = knots_neg, pos = knots_pos),
+       abs_ranges = list(neg = c(0,abs(min(knots_loc))), pos = c(0, max(knots_loc))))
+}
+
+
+# builds design matrices for fixed effects
+createFixedDesigns <- function(model, X){
+
+  fixed <- model$fixed
+
+  # If no fixed effects
+  if(is.null(fixed)) return(list(Xs_exp = list(matrix(nrow=nrow(X), ncol=0))))
+
+  fixed_names <- names(fixed)
+  Xs_exp <- list()
+
+  for(name in fixed_names){
+
+    fmodel <- model$fixed[[name]]$model
+    fixed_params <- fmodel$params
+    ref_value <- fixed_params$ref_value
+    model$fixed[[name]]$model$extra$range <- range(X[,name])
+
+    # This is where transformations are handled!
+    x <- applyTransformation(fmodel, X[,name])
+
+    if(fixed[[name]]$model$type == "poly"){
+      new_cols <- stats::poly(x, degree = fixed_params$degree, raw = T)
+      names(new_cols) <- paste0(name, "_", 1:fixed_params$degree)
+
+    }else if(fmodel$type == "bs"){
+
+      knots <- fixed_params$knots
+      degree <- fixed_params$degree
+      new_knots <- list(applyTransformation(fmodel, knots[[1]]),
+                        applyTransformation(fmodel, knots[[2]]))
+
+      # if(!(ref_value %in% knots[[1]] & ref_value %in% new_knots[[2]])) stop("ref_value of ", name, "cannot be found in the corresponding knots vector. \n")
+      # new_cols <- constructBS(x = X[,name], knots = knots, degree = degree, ref_value = ref_value)
+      if(!(0 %in% new_knots[[1]] & 0 %in% new_knots[[2]])) stop("ref_value of ", name, "cannot be found in the corresponding knots vector. \n")
+      new_cols <- constructBS(x = x, knots = new_knots, degree = degree, ref_value = 0)
+
+    }else{
+      stop("Invalid fixed effect model")
+
+    }
+
+    Xs_exp <- c(Xs_exp, list(new_cols))
+  }
+
+  names(Xs_exp) <- fixed_names
+  X <- do.call("cbind", Xs_exp)
+
+  list(X = X, Xs_exp = Xs_exp, model = model)
+}
+
+
+# builds design matrices for random effects (and those for the associated fixed effects)
+createRandomDesigns <- function(model, U){
+
+  random <- model$random
+
+  # If no random effects
+  if(is.null(random)){
+    return(list(As = list(methods::as(matrix(nrow=nrow(U), ncol=0), "dgTMatrix")),
+                Xs_int = list(matrix(nrow=nrow(U), ncol=0)),
+                gamma_dims = integer(0),
+                model = model))
+  }
+
+
+  random_names <- names(random)
+  As <- list()
+
+  for(name in random_names){
+
+    rmodel <- model$random[[name]]$model
+    random_params <- rmodel$params
+    ref_value <- random_params$ref_value
+    ran <- rmodel$extra$range <- range(U[,name])
+    random_type <- rmodel$type
+
+    # This is where transformations are handled!
+    u <- applyTransformation(rmodel, U[,name])
+    tref_value <- applyTransformation(rmodel, random_params$ref_value)
+
+    if(random_type == "random walk"){
+      if(!("binwidth" %in% names(random[[name]]$model$params))) stop("binwidth is not specified for random effect ", name,".")
+
+      # construct bins (binwidth understood on the transformed scale)
+      new_u <- round(u/random_params$binwidth)
+      bin_tvalues <- min(new_u):max(new_u) * random_params$binwidth
+      fac <- factor(new_u, levels = seq(min(new_u), max(new_u),1), labels = paste0(name,"__",bin_tvalues))
+      A <- Matrix::t(Matrix::fac2sparse(fac, drop.unused.levels = F))
+
+      # Set reference value by setting corresponding column of A (and neighbours) to zero.
+      # Note that the reference value (on the transformed scale) is zero...
+      # ref_value_pos <- which.min(abs(bin_values - ref_value))
+      ref_value_pos <- which.min(abs(bin_tvalues))
+      rounded_ref_tvalue <- bin_tvalues[ref_value_pos]
+      if(rounded_ref_tvalue != 0) stop("rounded_ref_tvalue != 0 for ", name, ". Check that Sam...")
+      removed_cols <- getColsToRemove(ref_value_pos, random_params$order)
+      As[[length(As)+1]] <- A[, -removed_cols]
+
+      # for later # REFREF
+      model$random[[name]]$model$extra$tref_value <- 0
+      model$random[[name]]$model$extra$bin_tvalues <- bin_tvalues
+      model$random[[name]]$model$extra$bin_values <- applyInvTransformation(rmodel, bin_tvalues)
+      model$random[[name]]$model$extra$rounded_ref_value <- applyInvTransformation(rmodel, 0)
+      model$random[[name]]$model$extra$rounded_ref_tvalue <- rounded_ref_tvalue
+      model$random[[name]]$model$extra$ref_value_pos <- ref_value_pos
+      model$random[[name]]$model$extra$removed_cols <- removed_cols
+
+      if(random[[name]]$model$params$poly_degree > 0){
+        model$random[[name]]$model$extra$bin_values_int <- stats::poly(bin_tvalues,
+                                                                degree = model$random[[name]]$model$params$poly_degree,
+                                                                raw = TRUE)
+      }
+
+    }else if(random_type == "integrated Wiener process"){
+
+      knots <- random_params$knots
+
+      if(!(ref_value %in% knots)) stop("ref_value of", name, "cannot be found in the corresponding knots vector. \n")
+      if(!(ran[1] >= knots[1] & ran[2] <= knots[length(knots)])) warning("knots for ", name, " do not span its range. Continuing anyway. \n")
+      if(length(knots) <= 2) stop("knots for ", name, " is too small")
+
+      ref_pos <- which(knots == ref_value)
+      new_knots <- applyTransformation(rmodel, knots)
+      model$random[[name]]$model$extra$tknots <- new_knots
+      A <- methods::as(local_poly(knots = new_knots, refined_x = u, p = random_params$order), "sparseMatrix")
+      As[[length(As)+1]] <- A
+
+    }else if(random_type == "monotone Gaussian process"){
+
+      list2env(random_params, envir = environment())
+      a <- ifelse(lambda == 0, 1, 1/(1-lambda))
+
+      # (this is always zero now)
+      # model$random[[name]]$model$extra$tref_value <- applyTransformation(rmodel, ref_value)
+
+
+      As[[length(As)+1]] <- if(method == "SS"){
+        stop("Method State-Space (SS) not implemented (omitted when reference value was included)")
+        Diagonal(1, n = 2*length(u))[seq(1, 2*length(u), by = 2),]
+
+      }else if(method == "FEM"){
+
+        # For mgp, we dont need to transform the data
+        u <- U[,name]
+
+        # position of knots (split for left or right of ref value)
+        if(is.null(region)) model$random[[name]]$model$params$region <- region <- range(u)
+        splitK <- splitKnots(knots, region, ref_value)
+
+        model$random[[name]]$model$params$region_split <- splitK$abs_ranges
+        model$random[[name]]$model$params$knots_split <- splitK$knots
+        model$random[[name]]$model$params$knots <- sum(unlist(splitK$knots))
+        # model$random[[name]]$model$extra$oregion <- range(u)
+
+        # forward and backward design matrices
+        u_pos <- pmax(u - ref_value, 0); u_neg <- pmax(ref_value - u, 0)
+        A_pos <- A_neg <- NULL
+        if(any(u_neg != 0)) A_neg <- Compute_Design(x = u_neg, k = splitK$knots$neg, region = splitK$abs_ranges$neg) |> as("dgTMatrix")
+        if(any(u_pos != 0)) A_pos <- Compute_Design(x = u_pos, k = splitK$knots$pos, region = splitK$abs_ranges$pos) |> as("dgTMatrix")
+        Matrix::cbind2(A_neg, A_pos)
+      }
+
+    }else{
+      stop("model type (", rmodel$type, ") for random effect ", name, " is not valid.")
+    }
+  }
+
+  names(As) <- random_names
+  Xs_int <- interpolationFixedEffects(model$random, U)
+  gamma_dims <- sapply(As, ncol)
+  gamma_dims <- gamma_dims[gamma_dims != 0]
+
+  list(As = As, gamma_dims = gamma_dims, Xs_int = Xs_int, model = model)
+}
+#
+
+
+interpolationFixedEffects <-  function(random, U){
+
+  random_names <- names(random)
+  sapply(random_names, function(name) {
+    if ("poly_degree" %in% names(random[[name]]$model$params)) {
+
+      poly_degree <- random[[name]]$model$params$poly_degree
+      if(poly_degree == 0) return(matrix(nrow=nrow(U), ncol=0))
+
+      # no point in using "buffer" c here. But I do to be coherent with Ziang. REFREF
+      # if(random[[name]]$model$params$c > 0) random[[name]]$model$params$c <- 0
+      u <- applyTransformation(random[[name]]$model, U[,name])
+
+      X_new <- stats::poly(u, degree = poly_degree, raw = TRUE)
+      colnames(X_new) <- paste0(name, "__", attr(X_new, "degree"))
+      return(X_new)
+    }
+    else {
+      return(matrix(nrow=nrow(U), ncol=0))
+    }
+  }, simplify = FALSE, USE.NAMES = TRUE)
+}
+#
+
+
+# Identify where to remove (not to put) overdispersion terms (sort of design for OD)
 selectFixedOD <- function(data, model, case_day, control_days){
 
   if(model$design$scheme == "time stratified"){
@@ -445,6 +478,10 @@ selectFixedOD <- function(data, model, case_day, control_days){
 }
 
 
+
+
+
+# Precision matrices for random effects -----------------------------------
 constructQ_rw <- function(random){
 
   if(is.null(random)) return(methods::as(matrix(nrow=0,ncol=0), "dgTMatrix"))
@@ -475,7 +512,7 @@ constructQ_iwp <- function(random){
   if(length(ids) == 0) return(numeric(0))
 
   unlist(lapply(random[ids], function(ran){
-      diag(OSplines::compute_weights_precision(x = ran$model$params$knots))
+    diag(compute_weights_precision(knots=ran$model$extra$tknots))
   }))
 }
 
@@ -495,21 +532,28 @@ constructQ_mgp <- function(random, U){
     a <- ifelse(lambda == 0, 1, 1/(1-lambda))
 
     if(method == "SS"){
-      # (need to undo the transformation for this one...)
-      u <- if(lambda == 0){
-        exp(U[,nam]) - c
-      }else{
-        U[,nam]^(1/lambda) - c
-      }
-
-      oo <- order(u)
+      stop("method SS for mGP random effects was dropped when reference values were included.")
+      oo <- order(U[,nam])
       ooo <- rep(2*oo, each=2) - rep(1:0, times=nrow(U))
       Q <- Matrix(data = 0, nrow = 2*nrow(U)+1, ncol = 2*nrow(U), sparse=T)[-1,] |> as("dgTMatrix")
-      Q[ooo,ooo] <- mGP_joint_prec(t_vec = u[oo], alpha = a, c = c)
+      # stop("SS option needs to be fixed")
+      # below there is something to manage with the data/reference value
+      # It assumed here that tdata = t(u - ref_value), but its t(u) - t(ref_value)
+      Q[ooo,ooo] <- mGP_joint_prec(t_vec = U[oo,nam] - ref_value, alpha = a, c = c) # REFREF
 
     }else if(method == "FEM"){
       # if region was null, it has been set in createRandomDesigns
-      Q <- Compute_Prec(a=a, c=c, k=knots, region=region, accuracy=.1, boundary=boundary)
+
+      # No need to transform data form mgp
+      u <- U[,nam]
+      u_pos <- pmax(u - ref_value, 0); u_neg <- pmax(ref_value - u, 0)
+      tc <- c + ref_value
+
+      # Define B and penalty matrices based on non-zero regions for training data
+      Q_list <- list()
+      if(any(u_neg != 0)) Q_list[[1]] <- Compute_Prec(k=knots_split$neg, region = region_split$neg, a = a, c = tc, rev = TRUE)
+      if(any(u_pos != 0)) Q_list[[length(Q_list)+1]] <- Compute_Prec(k=knots_split$pos, region = region_split$pos, a = a, c = tc, rev = FALSE)
+      Q <- Matrix::bdiag(Q_list)
 
     }else{
       stop("Unknown method (", method, ") for mGP for covariate ", nam)
@@ -524,6 +568,10 @@ constructQ_mgp <- function(random, U){
 }
 
 
+
+
+
+# Initialisation for priors  ----------------------------------------------
 # Compute initial theta parameter to be passed to aghq::quad.
 getPriorInit <- function(model, init_od_to_none = F){
   random_priors <- purrr::map(model$random, ~ .x$theta_prior)

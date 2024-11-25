@@ -30,14 +30,11 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   X <- as.matrix(data[names(model$fixed)])
   U <- as.matrix(data[names(model$random)])
 
-  # apply transformations (if any)
-  list2env(applyTransformations(model, X, U), envir = environment())
-
   # buids design matrices for fixed effects
   # creates Xs_exp
   list2env(createFixedDesigns(model, X), envir = environment())
 
-  # bluids design matrices for random effects, polynomial interpolation around reference values,
+  # builds design matrices for random effects, polynomial interpolation around reference values,
   # creates As, Xs_int and gamma_dims
   list2env(createRandomDesigns(model, U), envir = environment())
 
@@ -51,8 +48,8 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
 
 
   #############################
-  if(length(unique(sapply(model$random, function(ran) ran$model$type))) > 1)
-    stop("Random effects must all be of the same type (either 'random walk' or 'integrated Wiener process'). Mixing to be implemented.")
+  # if(length(unique(sapply(model$random, function(ran) ran$model$type))) > 1)
+  #   stop("Random effects must all be of the same type (either 'random walk' or 'integrated Wiener process'). Mixing to be implemented.")
   #############################
 
   random_effect_types <- sapply(model$random, \(ran) ran$model$type)

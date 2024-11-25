@@ -22,7 +22,7 @@ Note that the intercept is excluded.}
 \item{knots}{Number of (equally spaced) knots to use.}
 }
 \value{
-A list specifying a integrated Wiener process model for a nonlinear random effect.
+A list specifying an integrated Wiener process model for a nonlinear random effect.
 }
 \description{
 This is used to approximate Gaussian processes random effects.

@@ -6,7 +6,7 @@
 #' @param values List of vectors containing the values at which to evaluate the splines (fixed effect), if included.
 #' @return A data.frame with values of the beta and gamma coefficients, as well as their credible intervals.
 #' @export
-getResults <- function(fit, probs_pw = c(.8, .9), probs_g = c(.8, .9), M = 1e4, values = NULL){
+getResults <- function(fit, probs_pw = c(.8, .9), probs_g = c(.8, .9), M = 1e4, values = NULL, data = NULL){
 
   # Two main possibilities:
   #  - fixed effects only (no overdispersion)
@@ -17,14 +17,15 @@ getResults <- function(fit, probs_pw = c(.8, .9), probs_g = c(.8, .9), M = 1e4, 
     return(getResults_fixed_only(fit, probs_pw, probs_g, M, values))
   }else{
     # with random effects
-    return(getResults_general(fit, probs_pw, probs_g, M, values))
+    return(getResults_general(fit, probs_pw, probs_g, M, values, data))
   }
 }
 
 
 
 
-# Helpers
+
+# Helpers computing specific intervals ------------------------------------
 # pointwise cred. int and global env funs
 computePCI_fixed_only <- function(mean, sd, probs_pw){
   probs_pw <- sort(1-probs_pw)/2
@@ -75,6 +76,11 @@ computeGE_general <- function(yy, probs_g){
   quants
 }
 
+
+
+
+
+# "Methods" ---------------------------------------------------------------
 getResults_fixed_only <- function(fit, probs_pw, probs_g, M, values = NULL){
 
 
@@ -130,7 +136,7 @@ getResults_fixed_only <- function(fit, probs_pw, probs_g, M, values = NULL){
   return(df)
 }
 
-getResults_general <- function(fit, probs_pw, probs_g, M, values, data){
+getResults_general <- function(fit, probs_pw, probs_g, M, values, data = NULL){
 
   quad_samples <- aghq::sample_marginal(fit$quad, M)
   model <- fit$model
@@ -184,17 +190,21 @@ getResults_general <- function(fit, probs_pw, probs_g, M, values, data){
   ### RANDOM EFFECTS ###
   ######################
   counter_random <- which(names(fit$obj$env$last.par.best) == "gamma")[1] - 1
-
   if(is.na(counter_random)) counter_random <- 0
+
   for(nam in names(random)){
 
+    model0 <- model
+    model0$random <- model0$random[nam]
+    model0_params <- model0$random[[nam]]$model$params
+
+
     if(random[[nam]]$model$type == "random walk"){
-      model0 <- model
-      model0$random <- model0$random[nam]
       uu <- model0$random[[nam]]$model$extra$bin_values # get values
       UU <- matrix(uu, ncol=1, dimnames = list(NULL, nam))
 
       rDesign <- bayesEpi:::createRandomDesigns(model0, UU)
+
       AA <- rDesign$As[[nam]]
       XX <- rDesign$Xs_int[[nam]]
 
@@ -216,35 +226,20 @@ getResults_general <- function(fit, probs_pw, probs_g, M, values, data){
       df <- rbind(df, df0)
       counter_random <- counter_random + ncol(AA)
       counter_fixed <- counter_fixed + ncol(XX)
-    }else if(random[[nam]]$model$type == "monotone Gaussian process"){
+    }else if(random[[nam]]$model$type %in% c("integrated Wiener process",
+                                             "monotone Gaussian process")){
 
-      model0 <- model
-      model0$random <- model0$random[nam]
-      model0_params <- model0$random[[1]]$model$params
-
-      uut <- values[[nam]] # get values
-      if(is.null(uut)){
-        uut <- seq(model0_params$region[1], model0_params$region[2], length.out=100)
-      }else{
-        if(min(uut) < model0_params$region[1] | max(uut) > model0_params$region[2]){
-          stop("The values provided for ", nam, " are outside the range allowed. This is an mgp effect, and the values should be covered by:
-               model$random$",nam,"$model$params$region
-               which in this case is ", model$random[[nam]]$model$params$region)
-        }
+      uu <- values[[nam]] # get values
+      if(is.null(uu)){
+        if(is.null(data)) stop("Please provide at least 'values' or 'data' for random effect ", nam)
+        uu <- seq(min(data[, nam]), max(data[, nam]), length.out = 100)
       }
 
-      uu <- if(model0_params$lambda == 0){
-        exp(uut) - model0_params$c
-      }else{
-        uut^(1/model0_params$lambda) - model0_params$c
-      }
-      UU <- matrix(uut, ncol=1, dimnames = list(NULL, nam))
-
-      rDesign <- bayesEpi:::createRandomDesigns(model0, matrix(uut, ncol=1, dimnames = list(NULL, nam)))
+      rDesign <- bayesEpi:::createRandomDesigns(model0, matrix(uu, ncol=1, dimnames = list(NULL, nam)))
       AA <- rDesign$As[[nam]]
       XX <- rDesign$Xs_int[[nam]]
 
-      yy <- XX %*% quad_samples$samps[counter_fixed + 1:ncol(XX),] +
+      yy <- XX %*% quad_samples$samps[counter_fixed + 1:ncol(XX),,drop=F] +
         AA %*% quad_samples$samps[counter_random + 1:ncol(AA),] |> as.matrix()
 
       df0 <- data.frame(parameter_type = as.factor("gamma*"),

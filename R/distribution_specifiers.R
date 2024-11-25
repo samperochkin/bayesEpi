@@ -43,7 +43,8 @@ bs_effect <- function(knots,
 rw_effect <- function(order = 2,
                       poly_degree = order-1,
                       ref_value =stats::median,
-                      binwidth = 1){
+                      binwidth = 1,
+                      lambda = NULL, c = NULL){
 
   list(type="random walk", params=mget(names(formals()),sys.frame(sys.nframe())))
 }
@@ -68,7 +69,7 @@ rw_effect <- function(order = 2,
 iwp_effect <- function(order = 2,
                        poly_degree = order-1,
                        ref_value = stats::median,
-                       knots){
+                       knots, lambda = NULL, c = NULL){
 
   list(type="integrated Wiener process", params=mget(names(formals()),sys.frame(sys.nframe())))
 }
@@ -94,8 +95,7 @@ iwp_effect <- function(order = 2,
 #' @examples
 #' mgp_effect()
 #' @export
-mgp_effect <- function(poly_degree = 1,
-                       ref_value = NULL, # smallest possible value
+mgp_effect <- function(ref_value = NULL, # smallest possible value
                        lambda = 2, # sqrt as default
                        c = 1e-3,
                        method = "FEM",
@@ -104,7 +104,11 @@ mgp_effect <- function(poly_degree = 1,
                        accuracy = .01,
                        boundary = T){
 
-  list(type="monotone Gaussian process", params=mget(names(formals()),sys.frame(sys.nframe())))
+  if(!is.null(knots) && knots < 3) stop("Please use more than 2 knots for mGP random effects. You may need even more dependending on the choice of reference value.\n")
+  params <- mget(names(formals()),sys.frame(sys.nframe()))
+  params <- c(params, list(poly_degree = 1))
+
+  list(type="monotone Gaussian process", params = params)
 }
 
 

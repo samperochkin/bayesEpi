@@ -42,11 +42,14 @@ plot(toyData$no2, type="o", cex=.2)
 theta <- 6
 f_hum <- function(x) abs(1.25-x)
 f_o3 <- function(x) sqrt(x/100) 
-f_no2 <- function(x) sqrt(x/200)
+f_no2 <- function(x) sqrt(x/300)
 f_time <- function(x) .5 * sin(2*pi * x/365.25) + log(1+x/n) 
 
 # response variable
-toyData$count <- rpois(n,exp(f_hum(toyData$hum) + f_o3(toyData$o3) + f_time(toyData$time) + rnorm(n, 0, exp(-theta/2))))
+toyData$count <- rpois(n,exp(f_hum(toyData$hum) + 
+                               f_o3(toyData$o3) + f_no2(toyData$no2) +
+                               f_time(toyData$time) + 
+                               rnorm(n, 0, exp(-theta/2))))
 
 head(toyData)
 ```
@@ -85,8 +88,7 @@ fit <- fitModel(model, toyData, silent = T)
 Some functions are provided for analyzing the results returned by `fitModel`.
 Median prediction as well as credible intervals can be obtained via the function `getResults`.
 ```{r getResults, results = T}
-values <- NULL # default for mgp uses 100 (equally spaced) values with the range of observed data
-res <- getResults(fit, values = values,
+res <- getResults(fit, values = NULL, data = toyData, # give data to compute range
                   M = 5000, # M is number of samples to draw (for inference)
                   probs_pw = c(.9), # nominal levels for pointwise CI
                   probs_g = c(.9)) # nominal levels for global envelopes
