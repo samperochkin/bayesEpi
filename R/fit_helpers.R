@@ -229,21 +229,28 @@ splitKnots <- function(knots, range, ref_value){
                 abs_ranges = list(neg = c(0, ref_value-range[2]), pos = NULL)))
   }
 
-  knots_loc <- seq(min(range)-ref_value, max(range)-ref_value, length.out=knots-1)
-  offset <- knots_loc[which.min(abs(knots_loc))]
-  knots_loc <- knots_loc - offset
+  # knots_loc <- seq(min(range)-ref_value, max(range)-ref_value, length.out=knots-1)
+  # offset <- knots_loc[which.min(abs(knots_loc))]
+  # knots_loc <- knots_loc - offset
+  #
+  # if(offset != 0){
+  #   if(offset > 0) knots_loc <- c(knots_loc, knots_loc[length(knots_loc)] + diff(knots_loc[1:2]))
+  #   if(offset < 0) knots_loc <- c(knots_loc[1] - diff(knots_loc[1:2]), knots_loc)
+  #   cat("Some mGP random effects are fitted (FEM) using one more knot than specified, to ensure that the reference value is contained in the knots.\n")
+  # }
+  #
+  # knots_neg <- sum(knots_loc <= 0); knots_pos <- sum(knots_loc >= 0)
+  # if(min(knots_neg, knots_pos) < 3) stop("Some choices of the 'knots' parameter (for some mGP) lead to less than three knots on at least one side of the reference value.\n")
+  #
+  # list(knots = list(neg = knots_neg, pos = knots_pos),
+  #      abs_ranges = list(neg = c(0,abs(min(range)-ref_value)), pos = c(0, max(range)-ref_value)))
 
-  if(offset != 0){
-    if(offset > 0) knots_loc <- c(knots_loc, knots_loc[length(knots_loc)] + diff(knots_loc[1:2]))
-    if(offset < 0) knots_loc <- c(knots_loc[1] - diff(knots_loc[1:2]), knots_loc)
-    cat("Some mGP random effects are fitted (FEM) using one more knot than specified, to ensure that the reference value is contained in the knots.\n")
-  }
-
-  knots_neg <- sum(knots_loc <= 0); knots_pos <- sum(knots_loc >= 0)
-  if(min(knots_neg, knots_pos) < 3) stop("Some choices of the 'knots' parameter (for some mGP) lead to less than three knots on at least one side of the reference value.\n")
+  knots_neg <- ((knots-1)*(ref_value-min(range))/diff(range)) |> round()
+  knots_pos <- knots-1-knots_neg
 
   list(knots = list(neg = knots_neg, pos = knots_pos),
-       abs_ranges = list(neg = c(0,abs(min(knots_loc))), pos = c(0, max(knots_loc))))
+       abs_ranges = list(neg = c(0,ref_value-min(range)), pos = c(0, max(range)-ref_value)))
+
 }
 
 
