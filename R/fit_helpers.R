@@ -414,7 +414,7 @@ createRandomDesigns <- function(model, U){
         A_pos <- A_neg <- NULL
         if(any(u_neg != 0)) A_neg <- Compute_Design(x = u_neg, k = splitK$knots$neg, region = splitK$abs_ranges$neg) |> as("dgTMatrix")
         if(any(u_pos != 0)) A_pos <- Compute_Design(x = u_pos, k = splitK$knots$pos, region = splitK$abs_ranges$pos) |> as("dgTMatrix")
-        Matrix::cbind2(A_neg, A_pos)
+        Matrix::cbind2(A_neg[, ncol(A_neg):1], A_pos)
       }
 
     }else{
@@ -558,7 +558,7 @@ constructQ_mgp <- function(random, U){
 
       # Define B and penalty matrices based on non-zero regions for training data
       Q_list <- list()
-      if(any(u_neg != 0)) Q_list[[1]] <- Compute_Prec(k=knots_split$neg, region = region_split$neg, a = a, c = tc, rev = TRUE)
+      if(any(u_neg != 0)) Q_list[[1]] <- Compute_Prec(k=knots_split$neg, region = region_split$neg, a = a, c = tc, rev = TRUE)[(knots_split$neg-2):1,(knots_split$neg-2):1]
       if(any(u_pos != 0)) Q_list[[length(Q_list)+1]] <- Compute_Prec(k=knots_split$pos, region = region_split$pos, a = a, c = tc, rev = FALSE)
       Q <- Matrix::bdiag(Q_list)
 

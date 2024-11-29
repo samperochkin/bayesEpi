@@ -151,12 +151,16 @@ getResults_general <- function(fit, probs_pw, probs_g, M, values, data = NULL){
   counter_fixed <- 0
   for(nam in names(fixed)){
 
-    if(fixed[[nam]]$model$params$degree == 1){
-      counter_fixed <- counter_fixed + 1
+    # if(fixed[[nam]]$model$params$degree == 1){
+    #   counter_fixed <- counter_fixed + 1
+    #   next
+    # }
+
+    # if(is.null(values[[nam]])) stop("Please provide values for ", nam)
+    if(is.null(values[[nam]])){
+      counter_fixed <- counter_fixed + fixed[[nam]]$model$params$degree
       next
     }
-
-    if(is.null(values[[nam]])) stop("Please provide values for ", nam)
     xx <- values[[nam]]
 
     # design matrix (call bayesEpi function to create it)
@@ -205,27 +209,6 @@ getResults_general <- function(fit, probs_pw, probs_g, M, values, data = NULL){
 
       rDesign <- bayesEpi:::createRandomDesigns(model0, UU)
 
-      AA <- rDesign$As[[nam]]
-      XX <- rDesign$Xs_int[[nam]]
-
-      # evaluate effect at xx
-      yy <- as.matrix(AA %*% quad_samples$samps[counter_random + 1:ncol(AA),]) +
-        XX %*% quad_samples$samps[counter_fixed + 1:ncol(XX),]
-
-      df0 <- data.frame(parameter_type = as.factor("gamma*"),
-                        variable_name = as.factor(nam),
-                        variable_value = uu,
-                        mean = rowMeans(yy),
-                        median = apply(yy,1,stats::median),
-                        sd = apply(yy,1,stats::sd))
-
-      # include pointwise coverage probs and global envelop
-      if(!is.null(probs_pw)) df0 <- cbind(df0, computePCI_general(yy, probs_pw))
-      if(!is.null(probs_g)) df0 <- cbind(df0, computeGE_general(yy, probs_g))
-
-      df <- rbind(df, df0)
-      counter_random <- counter_random + ncol(AA)
-      counter_fixed <- counter_fixed + ncol(XX)
     }else if(random[[nam]]$model$type %in% c("integrated Wiener process",
                                              "monotone Gaussian process")){
 
@@ -236,31 +219,48 @@ getResults_general <- function(fit, probs_pw, probs_g, M, values, data = NULL){
       }
 
       rDesign <- bayesEpi:::createRandomDesigns(model0, matrix(uu, ncol=1, dimnames = list(NULL, nam)))
-      AA <- rDesign$As[[nam]]
-      XX <- rDesign$Xs_int[[nam]]
 
-      yy <- XX %*% quad_samples$samps[counter_fixed + 1:ncol(XX),,drop=F] +
-        AA %*% quad_samples$samps[counter_random + 1:ncol(AA),] |> as.matrix()
+    }else{
+      stop("Invalid random effect type")
+    }
 
-      df0 <- data.frame(parameter_type = as.factor("gamma*"),
+
+    AA <- rDesign$As[[nam]]
+    XX <- rDesign$Xs_int[[nam]]
+
+    # evaluate effect at xx
+    yyA <- as.matrix(AA %*% quad_samples$samps[counter_random + 1:ncol(AA),])
+    yyX <- XX %*% quad_samples$samps[counter_fixed + 1:ncol(XX),]
+    yy <- yyA + yyX
+
+
+    df0X <- data.frame(parameter_type = as.factor("beta*"),
+                       variable_name = as.factor(nam),
+                       variable_value = uu,
+                       mean = rowMeans(yyX),
+                       median = apply(yyX,1,stats::median),
+                       sd = apply(yyX,1,stats::sd))
+
+    df0XA <- data.frame(parameter_type = as.factor("gamma*"),
                         variable_name = as.factor(nam),
                         variable_value = uu,
                         mean = rowMeans(yy),
                         median = apply(yy,1,stats::median),
                         sd = apply(yy,1,stats::sd))
 
-      # include pointwise coverage probs and global envelop
-      if(!is.null(probs_pw)) df0 <- cbind(df0, computePCI_general(yy, probs_pw))
-      if(!is.null(probs_g)) df0 <- cbind(df0, computeGE_general(yy, probs_g))
-
-      df <- rbind(df, df0)
-      counter_random <- counter_random + ncol(AA)
-      counter_fixed <- counter_fixed + ncol(XX)
-
-    }else{
-      stop("Invalid random effect type")
+    # include pointwise coverage probs and global envelop
+    if(!is.null(probs_pw)){
+      df0X <- cbind(df0X, computePCI_general(yyX, probs_pw))
+      df0XA <- cbind(df0XA, computePCI_general(yy, probs_pw))
+    }
+    if(!is.null(probs_g)){
+      df0X <- cbind(df0X, computeGE_general(yyX, probs_g))
+      df0XA <- cbind(df0XA, computeGE_general(yy, probs_g))
     }
 
+    df <- rbind(df, df0X, df0XA)
+    counter_random <- counter_random + ncol(AA)
+    counter_fixed <- counter_fixed + ncol(XX)
   }
 
 
