@@ -61,7 +61,8 @@ rw_effect <- function(order = 2,
 #' @param poly_degree Degree of the polynomial for additional fixed effects (by default `order`-1).
 #' Note that the intercept is excluded.
 #' @param ref_value Either a value or a function to be used for computing the reference value.
-#' @param knots Number of (equally spaced) knots to use.
+#' @param knots Number of (equally spaced) knots to use. EXPLORATORY: can specify the knots' location (see actual code...).
+#' @param region EXPLORATORY: specify the actual region to cover with the knots (when knots is 'the number of knots').
 #' @return A list specifying an integrated Wiener process model for a nonlinear random effect.
 #' @examples
 #' iwp_effect()
@@ -69,7 +70,9 @@ rw_effect <- function(order = 2,
 iwp_effect <- function(order = 2,
                        poly_degree = order-1,
                        ref_value = stats::median,
-                       knots, lambda = NULL, c = NULL){
+                       lambda = 1, c = 0,
+                       stepsize, region = NULL,
+                       extra_left = 0, extra_right = 0){
 
   list(type="integrated Wiener process", params=mget(names(formals()),sys.frame(sys.nframe())))
 }
@@ -88,7 +91,7 @@ iwp_effect <- function(order = 2,
 #' @param c Small value added to the data for numerical reasons.
 #' @param method Either `FEM` (finite elements, default) or `SS` (state space).
 #' @param knots Number of (equally spaced) knots to use (for `method = 'FEM'`).
-#' @param region Region of the covariate sample space to cover (for `method = 'FEM'`).
+#' @param region EXPLORATORY: Region of the covariate sample space to cover (for `method = 'FEM'`).
 #' @param accuracy (Numeric. Default: `.001`).
 #' @param boundary (Logical. Default: `T`).
 #' @return A list specifying a monotone Gaussian process process model for a nonlinear random effect.
@@ -96,15 +99,13 @@ iwp_effect <- function(order = 2,
 #' mgp_effect()
 #' @export
 mgp_effect <- function(ref_value = NULL, # smallest possible value
-                       lambda = 2, # sqrt as default
-                       c = 1e-3,
+                       lambda = 1/2, c = 1e-3,
                        method = "FEM",
-                       knots = NULL,
-                       region = NULL,
-                       accuracy = .01,
+                       stepsize, region = NULL,
+                       extra_left = 0, extra_right = 0,
+                       accuracy = .001,
                        boundary = T){
 
-  if(!is.null(knots) && knots < 3) stop("Please use more than 2 knots for mGP random effects. You may need even more dependending on the choice of reference value.\n")
   params <- mget(names(formals()),sys.frame(sys.nframe()))
   params <- c(params, list(poly_degree = 1))
 

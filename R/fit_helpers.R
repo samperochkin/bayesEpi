@@ -218,39 +218,35 @@ applyInvTransformation <- function(frmodel, xORu){
 
 # helper to distribute appropriately distribute knots around
 # reference value for mgp random effects (note: output standardized so that ref_value = 0)
-splitKnots <- function(knots, range, ref_value){
+# also used for iwp
+# NOTE: IT IS BEST TO SPECIFY ONES OWN KNOTS. THIS IS SHAKY
+splitKnots <- function(region, ref_value, range, stepsize, type = "mgp",
+                       extra_left=0, extra_right=0){
 
-  if(ref_value <= range[1]){
-    return(list(knots = list(neg = NULL, pos = knots),
-                abs_ranges = list(neg = NULL, pos = c(0, range[2]-ref_value))))
+  if(range[1] < region[1] || range[2] > region[2])
+    stop("For random effect ", name, ": Make sure that region covers all of the data.")
+  if(ref_value < region[1] || ref_value > region[2])
+    stop("For random effect ", name, ": Make sure ref_value is inside the region provided.")
+
+  region[1] <- ref_value - ceiling((ref_value - region[1])/stepsize)*stepsize
+  region[2] <- ref_value + ceiling((region[2]-ref_value)/stepsize)*stepsize
+
+  region <- region + c(extra_left, extra_right)*stepsize
+  knots_neg <- seq(region[1]-stepsize*extra_left, ref_value, stepsize)
+  knots_pos <- seq(ref_value, region[2]+stepsize*extra_right, stepsize)
+
+  if(length(knots_neg) < 3 | length(knots_pos) < 3)
+    stop("For random effect ", name, ": region and stepsize leads to too few knots.")
+
+  if(type == "iwp") return(c(knots_neg, knots_pos[-1]))
+  if(type == "mgp"){
+    knots_neg <- length(knots_neg)
+    knots_pos <- length(knots_pos)
+    region_neg <- c(0, ref_value-min(region))
+    region_pos <- c(0, max(region)-ref_value)
+    return(list(knots = list(neg = knots_neg, pos = knots_pos),
+                regions = list(neg = region_neg, pos = region_pos)))
   }
-  if(ref_value >= range[2]){
-    return(list(knots = list(neg = knots, pos = NULL),
-                abs_ranges = list(neg = c(0, ref_value-range[2]), pos = NULL)))
-  }
-
-  # knots_loc <- seq(min(range)-ref_value, max(range)-ref_value, length.out=knots-1)
-  # offset <- knots_loc[which.min(abs(knots_loc))]
-  # knots_loc <- knots_loc - offset
-  #
-  # if(offset != 0){
-  #   if(offset > 0) knots_loc <- c(knots_loc, knots_loc[length(knots_loc)] + diff(knots_loc[1:2]))
-  #   if(offset < 0) knots_loc <- c(knots_loc[1] - diff(knots_loc[1:2]), knots_loc)
-  #   cat("Some mGP random effects are fitted (FEM) using one more knot than specified, to ensure that the reference value is contained in the knots.\n")
-  # }
-  #
-  # knots_neg <- sum(knots_loc <= 0); knots_pos <- sum(knots_loc >= 0)
-  # if(min(knots_neg, knots_pos) < 3) stop("Some choices of the 'knots' parameter (for some mGP) lead to less than three knots on at least one side of the reference value.\n")
-  #
-  # list(knots = list(neg = knots_neg, pos = knots_pos),
-  #      abs_ranges = list(neg = c(0,abs(min(range)-ref_value)), pos = c(0, max(range)-ref_value)))
-
-  knots_neg <- ((knots-1)*(ref_value-min(range))/diff(range)) |> round()
-  knots_pos <- knots-1-knots_neg
-
-  list(knots = list(neg = knots_neg, pos = knots_pos),
-       abs_ranges = list(neg = c(0,ref_value-min(range)), pos = c(0, max(range)-ref_value)))
-
 }
 
 
@@ -370,13 +366,17 @@ createRandomDesigns <- function(model, U){
 
     }else if(random_type == "integrated Wiener process"){
 
-      knots <- random_params$knots
-
-      if(!(ref_value %in% knots)) stop("ref_value of", name, "cannot be found in the corresponding knots vector. \n")
-      if(!(ran[1] >= knots[1] & ran[2] <= knots[length(knots)])) warning("knots for ", name, " do not span its range. Continuing anyway. \n")
-      if(length(knots) <= 2) stop("knots for ", name, " is too small")
-
+      list2env(random_params, envir = environment())
+      if(is.null(region)) model$random[[name]]$model$params$region <- region <- range(u)
+      knots <- splitKnots(region=region, range = ran, ref_value=ref_value, stepsize=stepsize,
+                          type = "iwp", extra_left=extra_left, extra_right=extra_right)
+      model$random[[name]]$model$params$knots <- knots
       ref_pos <- which(knots == ref_value)
+
+      # should not happen
+      if(length(ref_pos) == 0) stop("ref_value of", name, "cannot be found in the corresponding knots vector. \n")
+      if(ran[1] < knots[1] & ran[2] > rev(knots)[1]) warning("knots for ", name, " do not span its range. Continuing anyway. \n")
+
       new_knots <- applyTransformation(rmodel, knots)
       model$random[[name]]$model$extra$tknots <- new_knots
       A <- methods::as(local_poly(knots = new_knots, refined_x = u, p = random_params$order), "sparseMatrix")
@@ -402,18 +402,19 @@ createRandomDesigns <- function(model, U){
 
         # position of knots (split for left or right of ref value)
         if(is.null(region)) model$random[[name]]$model$params$region <- region <- range(u)
-        splitK <- splitKnots(knots, region, ref_value)
+        splitK <- splitKnots(region=region, range = ran, ref_value=ref_value, stepsize=stepsize,
+                             type = "mgp", extra_left=extra_left, extra_right=extra_right)
 
-        model$random[[name]]$model$params$region_split <- splitK$abs_ranges
-        model$random[[name]]$model$params$knots_split <- splitK$knots
-        model$random[[name]]$model$params$knots <- sum(unlist(splitK$knots))
+        model$random[[name]]$model$extra$region_split <- splitK$regions
+        model$random[[name]]$model$extra$knots_split <- splitK$knots
+        model$random[[name]]$model$extra$knots <- sum(unlist(splitK$knots))
         # model$random[[name]]$model$extra$oregion <- range(u)
 
         # forward and backward design matrices
         u_pos <- pmax(u - ref_value, 0); u_neg <- pmax(ref_value - u, 0)
         A_pos <- A_neg <- NULL
-        if(any(u_neg != 0)) A_neg <- Compute_Design(x = u_neg, k = splitK$knots$neg, region = splitK$abs_ranges$neg) |> as("dgTMatrix")
-        if(any(u_pos != 0)) A_pos <- Compute_Design(x = u_pos, k = splitK$knots$pos, region = splitK$abs_ranges$pos) |> as("dgTMatrix")
+        if(any(u_neg != 0)) A_neg <- Compute_Design(x = u_neg, k = splitK$knots$neg, region = splitK$regions$neg) |> as("dgTMatrix")
+        if(any(u_pos != 0)) A_pos <- Compute_Design(x = u_pos, k = splitK$knots$pos, region = splitK$regions$pos) |> as("dgTMatrix")
         Matrix::cbind2(A_neg[, ncol(A_neg):1], A_pos)
       }
 
@@ -534,7 +535,9 @@ constructQ_mgp <- function(random, U){
 
   Qs <- lapply(names(random_mgp), function(nam){
 
+    ran_extras <- random_mgp[[nam]]$model$extra
     ran_params <- random_mgp[[nam]]$model$params
+    list2env(ran_extras, envir = environment())
     list2env(ran_params, envir = environment())
     a <- ifelse(lambda == 0, 1, 1/(1-lambda))
 
