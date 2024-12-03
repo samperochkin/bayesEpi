@@ -231,9 +231,9 @@ splitKnots <- function(region, ref_value, range, stepsize, type = "mgp",
   region[1] <- ref_value - ceiling((ref_value - region[1])/stepsize)*stepsize
   region[2] <- ref_value + ceiling((region[2]-ref_value)/stepsize)*stepsize
 
-  region <- region + c(extra_left, extra_right)*stepsize
-  knots_neg <- seq(region[1]-stepsize*extra_left, ref_value, stepsize)
-  knots_pos <- seq(ref_value, region[2]+stepsize*extra_right, stepsize)
+  region <- region + c(-extra_left, extra_right)*stepsize
+  knots_neg <- seq(region[1], ref_value, stepsize)
+  knots_pos <- seq(ref_value, region[2], stepsize)
 
   if(length(knots_neg) < 3 | length(knots_pos) < 3)
     stop("For random effect ", name, ": region and stepsize leads to too few knots.")

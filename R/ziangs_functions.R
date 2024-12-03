@@ -293,8 +293,7 @@ Compute_Design <- function(x, k, region, boundary = TRUE){
                                                           nbasis = k,
                                                           norder = 4,
                                                           dropind = c(1,2)))
-  }
-  else{
+  }else{
     B_basis <- suppressWarnings(fda::create.bspline.basis(rangeval = c(min(region),max(region)),
                                                           nbasis = k,
                                                           norder = 4))
