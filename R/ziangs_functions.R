@@ -1,4 +1,27 @@
 
+# SD FUNCTIONS
+# Computing PSD:
+PSD_compute <- function(x, h, c = 1, alpha = 2){
+  sqrt(SS_cov(s = (x + h), t = (x), c = c, alpha = alpha))
+}
+
+# prior conversion for iwp (from BayesGP package)
+prior_conversion_iwp <- function(d, prior, p) {
+  Cp <- (d^((2 * p) - 1)) / (((2 * p) - 1) * (factorial(p - 1)^2))
+  prior_q <- list(alpha = prior$alpha, u = (prior$u * (1 / sqrt(Cp))))
+  prior_q
+}
+
+# Convert Prior on PSD to SD:
+prior_conversion_mgp <- function(prior, d, h = NULL, c = 0.1, alpha = 2, x = 0){
+  if(!is.null(h)){
+    d <- h
+  }
+  correction_factor <- PSD_compute(x = x, h = d, c = c, alpha = alpha)
+  prior_q <- list(prob = prior$prob, u = (prior$u/correction_factor))
+  prior_q
+}
+
 
 
 # Adaptation of the local_poly function from the OSplines packages --------
@@ -270,7 +293,7 @@ Compute_Prec <- function(a, c, k, region, accuracy = 0.01, boundary = TRUE, rev 
   B2matrix <-  fda::eval.basis(x, B_basis, Lfdobj=2, returnMatrix=TRUE)
 
 
-  a_func <- function(x) (-1)^(rev+1)/(a*(x+c))
+  a_func <- function(x) {(-1)^(rev+1)/(a*((-1)^rev*x+c))}
   a_matrix <- a_func(x)
   B1a <- as(apply(B1matrix, 2, function(x) x*a_matrix), "dgCMatrix")
 

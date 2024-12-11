@@ -43,7 +43,13 @@ fitModel.ccModel <- function(model, data, silent = F, params_init = NULL){
   beta_prec = c(purrr::map(model$fixed, ~ .x$prior$params$prec), purrr::map(model$random, ~ .x$beta_prior$params$prec)) |> unlist()
   theta_prior <- c(purrr::map(model$random, ~ .x$theta_prior$type), z = model$overdispersion$theta_prior$type) |> unlist()
   theta_prior_id = match(theta_prior , prior_lookup)
-  theta_hypers = c(purrr::map(model$random, ~ .x$theta_prior$params), z = model$overdispersion$theta_prior$params) |> unlist()
+
+  theta_hypers_random <- lapply(model$random, \(x){
+    if(is.null(x$theta_prior$params$convert)) return(x$theta_prior$params)
+    if(!x$theta_prior$params$convert) return(x$theta_prior$params[names(x$theta_prior$params) != "convert"])
+    priorConversion(x)
+  })
+  theta_hypers = c(gamma = theta_hypers_random, z = model$overdispersion$theta_prior$params) |> unlist()
   if(is.null(theta_hypers)) theta_hypers <- numeric(0)
 
 

@@ -154,7 +154,7 @@ gaussian_prior <- function(prec = .01){
 #' @examples
 #' pc_prec_prior(alpha = .5, u = .01)
 #' @export
-pc_prec_prior <- function(alpha = .5, u = .1){
+pc_prec_prior <- function(alpha = .5, u = .1, convert = F){
   list(type="pc_prec", params=mget(names(formals()),sys.frame(sys.nframe())))
 }
 

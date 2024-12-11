@@ -367,7 +367,7 @@ createRandomDesigns <- function(model, U){
     }else if(random_type == "integrated Wiener process"){
 
       list2env(random_params, envir = environment())
-      if(is.null(region)) model$random[[name]]$model$params$region <- region <- range(u)
+      if(is.null(region)) model$random[[name]]$model$params$region <- region <- range(U[,name])
       knots <- splitKnots(region=region, range = ran, ref_value=ref_value, stepsize=stepsize,
                           type = "iwp", extra_left=extra_left, extra_right=extra_right)
       model$random[[name]]$model$params$knots <- knots
@@ -608,4 +608,29 @@ getPriorInit <- function(model, init_od_to_none = F){
   }
 
   return(theta_init)
+}
+
+
+priorConversion <- function(x){
+  if(x$theta_prior$type != "pc_prec") stop("Conversion only possible for pc_prec so far...")
+  prior0 <- x$theta_prior$params
+  prior0 <- prior0[names(prior0) != "convert"]
+
+  lambda <- x$model$params$lambda
+  if(lambda == 1) return(prior0)
+
+  c <- x$model$params$c
+  h <- x$model$params$stepsize
+  ref_value <- x$model$params$ref_value
+
+  if(x$model$type == "monotone Gaussian process"){
+    names(prior0)[names(prior0) == "alpha"] <- "prob"
+    alpha <- ifelse(lambda == 0, 1, 1/(1-lambda))
+    prior_conversion_mgp(prior = prior0, x = 0, h = h, c = ref_value + c, alpha = alpha)
+  }else if(x$model$type == "integrated Wiener process"){
+    if(lambda != 1) stop("prior conversion not avaialable for t-IWP (lambda != 1)")
+    prior_conversion_iwp(prior = prior0, d = h, p = 2)
+  }else{
+    stop("prior conversion not defined for type ", x$model$type)
+  }
 }
